@@ -1,0 +1,36 @@
+[user]
+	name = mimarz
+	email = mimarz@gmail.com
+	username = mimarz
+[core]
+  autocrlf = input
+	excludesfile = /Users/michael.marszalek/.gitignore_global
+	editor = code --wait
+[push]
+  default = simple
+[color]
+  ui = true
+[log]
+  date = relative
+[diff]
+    tool = default-difftool
+[difftool "default-difftool"]
+    cmd = code --wait --diff $LOCAL $REMOTE
+[alias]
+  lg = log --graph --decorate --pretty=format:'%C(yellow)%h%Creset - %C(green)%cr%Creset -%C(magenta)%d%Creset %s %C(blue)(%an)%Creset'
+  lga = log --all --graph --decorate --pretty=format:'%C(yellow)%h%Creset - %C(green)%cr%Creset -%C(magenta)%d%Creset %s %C(blue)(%an)%Creset'
+  lgo = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
+  d = difftool
+  co = checkout
+  pf = push --force-with-lease
+	s = status
+  pr = pull --rebase
+  sp = stash pop
+  ignore = "!gi() { curl -L -s https://www.gitignore.io/api/$@ ;}; gi"
+[pull]
+	rebase = true
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
