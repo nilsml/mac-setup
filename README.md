@@ -8,10 +8,14 @@ I made a script (`osx_bootstrap.sh`) which does all this for me, leaving just a 
 
 Browse all the formulas (packages) or casks (applications) [here](https://formulae.brew.sh/) and edit `osx_bootstrap.sh` to your liking.
 
+## The gist
+
 1. Open `Terminal.app`
 2. Run command `chmod +x osx_bootstrap.sh`
 3. Run command `./osx_bootstrap.sh`
-4. Sit back and drink coffee ☕️ while your mac installs all the stuff you need
+4. Sit back and drink coffee ☕️ while your mac bootstraps
+5. Copy `.gitconfig` & `.zshrc` to `~/`
+6. Do some manual settings in `iTerm2` & `Visual Studio Code`
 
 ## Stuff explained
 
