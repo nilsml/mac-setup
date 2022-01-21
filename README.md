@@ -14,7 +14,7 @@ Browse all the formulas (packages) or casks (applications) [here](https://formul
 2. Run command `chmod +x osx_bootstrap.sh`
 3. Run command `./osx_bootstrap.sh`
 4. Sit back and drink coffee ☕️ while your mac bootstraps
-5. Copy `.gitconfig` & `.zshrc` to `~/`
+5. Copy dotfiles `.gitconfig` & `.zshrc` to `~/`
 6. Do some manual settings in `iTerm2` & `Visual Studio Code`
 
 ## Stuff explained
