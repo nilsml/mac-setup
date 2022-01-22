@@ -111,7 +111,7 @@ echo "Installing mac store app installer"
 brew install mas
 
 echo "Installing mac store apps"
-Amphetamine
+# Amphetamine
 mas install 937984704
 # Magnet
 mas install 441258766
