@@ -57,6 +57,7 @@ PACKAGES=(
     jq
     flutter
     starship
+    ag
 )
 
 echo "Installing packages..."

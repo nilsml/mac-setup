@@ -23,6 +23,7 @@ plugins=(
   zsh-autosuggestions
   zsh-syntax-highlighting
   zsh-completions
+  ag
 )
 
 autoload -U compinit && compinit
