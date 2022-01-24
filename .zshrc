@@ -12,6 +12,7 @@ zstyle ':completion:*' menu select
 # Plugins
 plugins=(
   git
+  gh
   z
   docker
   bundler
