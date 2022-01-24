@@ -81,10 +81,6 @@ CASKS=(
 echo "Installing cask apps..."
 sudo -u $SUDO_USER brew install --cask ${CASKS[@]}
 
-#sudo -u $SUDO_USER brew install --cask docker
-#or
-#brew install colima
-
 echo "Install Nerd Font Fira Code"
 brew tap homebrew/cask-fonts
 brew install --cask font-fira-code-nerd-font
