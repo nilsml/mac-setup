@@ -41,7 +41,7 @@ This chapter is about setting up your [terminal, shell and prompt (command-line)
 
 - Terminal: [iTerm2](https://iterm2.com/)
 - Shell: [zsh](https://ohmyz.sh/)
-- prompt: [spaceship](https://spaceship-prompt.sh)
+- prompt: [starship](https://starship.rs)
 
 #### iTerm2
 
