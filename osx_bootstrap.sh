@@ -56,7 +56,7 @@ PACKAGES=(
     tree
     jq
     flutter
-    starship
+    spaceship
 )
 
 echo "Installing packages..."
