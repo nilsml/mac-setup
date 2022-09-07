@@ -1,10 +1,10 @@
 [user]
-	name = mimarz
-	email = mimarz@gmail.com
-	username = mimarz
+	name = YOUR_NAME
+	email = YOUR_EMAIL
+	username = YOUR_USERNAME
 [core]
   autocrlf = input
-	excludesfile = /Users/michael.marszalek/.gitignore_global
+	excludesfile = /Users/YOUR_MAC_USERNAME/.gitignore_global
 	editor = code --wait
 [push]
   default = simple

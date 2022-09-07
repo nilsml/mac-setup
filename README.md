@@ -15,6 +15,7 @@ Browse all the formulas (packages) or casks (applications) [here](https://formul
 3. Run command `./osx_bootstrap.sh`
 4. Sit back and drink coffee ☕️ while your mac bootstraps
 5. Copy dotfiles `.gitconfig` & `.zshrc` to `~/`
+   1. Replace personal environment variables starting with `YOUR_`
 6. Do some manual settings in `iTerm2` & `Visual Studio Code`
 
 ## Stuff explained
