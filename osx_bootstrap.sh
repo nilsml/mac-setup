@@ -55,7 +55,6 @@ PACKAGES=(
     grep
     tree
     jq
-    flutter
     starship
     ag
 )
