@@ -35,6 +35,9 @@ if test ! $(which brew); then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
+(echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/nilsml/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
 brew update
 brew upgrade
 
@@ -63,8 +66,8 @@ echo "Installing packages..."
 brew install ${PACKAGES[@]}
 
 CASKS=(
-    alfred
     figma
+    miro
     iterm2
     visual-studio-code
     microsoft-teams
@@ -73,9 +76,12 @@ CASKS=(
     slack
     ngrok
     insomnia
-    spotify
-    rocket
     vlc
+    tidal
+    rocket
+    protonvpn
+    powershell
+    firefox
 )
 
 echo "Installing cask apps..."
@@ -86,7 +92,7 @@ brew tap homebrew/cask-fonts
 brew install --cask font-fira-code-nerd-font
 
 echo "Installing finder improvements"
-brew install --cask qlcolorcode qlimagesize qlmarkdown qlvideo quicklook-csv quicklook-json
+brew install --cask qlcolorcode qlimagesize qlmarkdown qlvideo quicklook-csv
 brew install --cask suspicious-package
 
 # Check for ohmyzsh, install if not installed
@@ -111,8 +117,6 @@ echo "Installing mac store apps"
 mas install 937984704
 # Magnet
 mas install 441258766
-# Xcode
-mas install 497799835
 # Remote Desktop
 mas install 1295203466
 
