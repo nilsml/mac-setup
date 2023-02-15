@@ -60,6 +60,8 @@ PACKAGES=(
     jq
     starship
     ag
+    tmux
+    nvim
 )
 
 echo "Installing packages..."
@@ -88,6 +90,7 @@ CASKS=(
     todoist
     hazel
     onedrive
+    exa
 )
 
 echo "Installing cask apps..."
