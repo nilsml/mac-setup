@@ -82,6 +82,12 @@ CASKS=(
     protonvpn
     powershell
     firefox
+    lastpass
+    vivaldi
+    alacritty
+    todoist
+    hazel
+    onedrive
 )
 
 echo "Installing cask apps..."
