@@ -99,6 +99,7 @@ sudo -u $SUDO_USER brew install --cask ${CASKS[@]}
 echo "Install Nerd Font Fira Code"
 brew tap homebrew/cask-fonts
 brew install --cask font-fira-code-nerd-font
+brew install --cask font-menlo-for-powerline
 
 echo "Installing finder improvements"
 brew install --cask qlcolorcode qlimagesize qlmarkdown qlvideo quicklook-csv
