@@ -129,7 +129,8 @@ mas install 937984704
 mas install 441258766
 # Remote Desktop
 mas install 1295203466
-
+# OneNote
+mast install 784801555
 echo "Cleaning up"
 brew cleanup
 echo "Ask the doctor"
