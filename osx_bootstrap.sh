@@ -51,7 +51,6 @@ fi
 
 PACKAGES=(
     node
-    docker
     git
     cocoapods
     gh
