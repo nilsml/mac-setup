@@ -91,6 +91,7 @@ CASKS=(
     hazel
     onedrive
     exa
+    docker
 )
 
 echo "Installing cask apps..."
