@@ -69,16 +69,24 @@ install_tmux_plugins() {
   ensure_clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 }
 
+install_dotfiles() {
+  log "dotfiles"
+  local dir="$HOME/Dev/dotfiles"
+  ensure_clone https://github.com/nilsml/dotfiles.git "$dir"
+  "$dir/install.sh"
+}
+
 main() {
   install_xcode_clt
   install_homebrew
   install_bundle
   install_oh_my_zsh
   install_tmux_plugins
+  install_dotfiles
   log "Cleanup"
   brew cleanup
   brew doctor || true
-  log "Done. Next: copy dotfiles (see README)."
+  log "Done. Restart the terminal."
 }
 
 main "$@"

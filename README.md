@@ -12,7 +12,7 @@ My setup for a new Mac. Everything installable lives in `Brewfile`; `osx_bootstr
    ./osx_bootstrap.sh
    ```
    The first run may stop after installing Xcode Command Line Tools. Run it again when that is done.
-4. Copy `.zshrc` and `.gitconfig` to `~/` and replace the `YOUR_*` values.
+4. Dotfiles and Claude config come from [nilsml/dotfiles](https://github.com/nilsml/dotfiles): the script clones it to `~/Dev/dotfiles` and runs its `install.sh`.
 5. Manual: iTerm2 profile/font/hotkey, VS Code Settings Sync.
 
 ## What gets installed
@@ -28,7 +28,7 @@ My setup for a new Mac. Everything installable lives in `Brewfile`; `osx_bootstr
 | Python tools (`uv`) | `uv tool` |
 | Global npm packages (`npm`) | `npm -g` |
 
-Plus oh-my-zsh with autosuggestions, completions and syntax-highlighting, and tmux plugin manager.
+Plus oh-my-zsh with autosuggestions, completions and syntax-highlighting, tmux plugin manager, and the dotfiles repo.
 
 ## Keeping it up to date
 
@@ -52,6 +52,9 @@ brew bundle cleanup --file=Brewfile   # lists what is installed but not in Brewf
 - Prompt: [starship](https://starship.rs)
 - Font: Fira Code Nerd Font
 
-## Git
+## Before wiping the old Mac
 
-See `.gitconfig`: rebase on pull, VS Code as editor and difftool, log aliases.
+- `brew bundle dump --file=Brewfile --describe --force` and commit
+- In dotfiles: `./claude/capture.sh`, review `git diff`, commit
+- Back up local-only files (`~/Dev` repos not pushed, `~/Library/Application Support` for apps without sync)
+- Sign out of iCloud / Find My, release from Intune, deauthorise licences
