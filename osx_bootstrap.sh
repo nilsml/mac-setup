@@ -1,145 +1,96 @@
-#!/bin/bash
-# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+#!/usr/bin/env bash
+# Bootstrap a new Mac. Safe to re-run: every step checks before it acts.
+#
+# Preconditions:
+#   - Signed in to the App Store (needed for the `mas` entries in Brewfile)
+#   - Terminal has Full Disk Access (System Settings > Privacy & Security)
+#
+# Usage: ./osx_bootstrap.sh
 set -euo pipefail
-IFS=$'\n\t'
 
-# inspired by
-# https://gist.github.com/codeinthehole/26b37efa67041e1307db
-# https://github.com/why-jay/osx-init/blob/master/install.sh
-# https://github.com/timsutton/osx-vm-templates/blob/master/scripts/xcode-cli-tools.sh
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
-# PRECONDITIONS
-# 1)
-# make sure the file is executable
-# chmod +x osx_bootstrap.sh
-#
-# 2)
-# Your password may be necessary for some packages
-#
-# 3)
-# https://docs.brew.sh/Installation#macos-requirements
-# xcode-select --install
-# (_xcode-select installation_ installs git already, however git will be installed via brew packages as well to install as much as possible the brew way
-#  this way you benefit from frequent brew updates)
-#
-# 4) don't let the “Operation not permitted” error bite you
-# Please make sure you system settings allow the termianl full disk access
-# https://osxdaily.com/2018/10/09/fix-operation-not-permitted-terminal-error-macos/
+log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
-# `set -eu` causes an 'unbound variable' error in case SUDO_USER is not set
-SUDO_USER=$(whoami)
+# Append a line to a file unless it is already there.
+ensure_line() {
+  local line="$1" file="$2"
+  touch "$file"
+  grep -qxF "$line" "$file" || echo "$line" >>"$file"
+}
 
-# Check for Homebrew, install if not installed
-if test ! $(which brew); then
-    echo "Installing homebrew..."
+# Clone a git repo unless the target directory already exists.
+ensure_clone() {
+  local url="$1" dest="$2"
+  [[ -d "$dest" ]] || git clone --depth 1 "$url" "$dest"
+}
+
+install_xcode_clt() {
+  log "Xcode Command Line Tools"
+  if xcode-select -p >/dev/null 2>&1; then
+    echo "already installed"
+  else
+    xcode-select --install
+    echo "Finish the installer dialog, then re-run this script."
+    exit 1
+  fi
+}
+
+install_homebrew() {
+  log "Homebrew"
+  if ! command -v brew >/dev/null 2>&1 && [[ ! -x /opt/homebrew/bin/brew ]]; then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-fi
+  fi
+  ensure_line 'eval "$(/opt/homebrew/bin/brew shellenv)"' "$HOME/.zprofile"
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+  brew update
+}
 
-(echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/nilsml/.zprofile
-eval "$(/opt/homebrew/bin/brew shellenv)"
+install_bundle() {
+  log "Brewfile (formulae, casks, App Store, VS Code, uv, npm)"
+  brew bundle install --file="$REPO_DIR/Brewfile"
+}
 
-brew update
-brew upgrade
+install_oh_my_zsh() {
+  log "oh-my-zsh + plugins"
+  if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+    RUNZSH=no KEEP_ZSHRC=yes sh -c \
+      "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  fi
+  local plugin
+  for plugin in zsh-autosuggestions zsh-completions zsh-syntax-highlighting; do
+    ensure_clone "https://github.com/zsh-users/$plugin" "$ZSH_CUSTOM/plugins/$plugin"
+  done
+}
 
-# find the CLI Tools update
-echo "find CLI tools update"
-PROD=$(softwareupdate -l | grep "\*.*Command Line" | head -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | tr -d '\n') || true
-# install it
-if [[ ! -z "$PROD" ]]; then
-    softwareupdate -i "$PROD" --verbose
-fi
+install_tmux_plugins() {
+  log "tmux plugin manager"
+  ensure_clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+}
 
-PACKAGES=(
-    node
-    git
-    cocoapods
-    gh
-    grep
-    tree
-    jq
-    starship
-    ag
-    tmux
-    nvim
-)
+install_dotfiles() {
+  log "dotfiles"
+  local dir="$HOME/dotfiles"
+  [[ -d "$dir" ]] || git clone https://github.com/nilsml/dotfiles.git "$dir"
+  if [[ -f "$dir/install.sh" ]]; then
+    bash "$dir/install.sh"
+  else
+    echo "WARNING: $dir/install.sh not found, skipping dotfiles install." >&2
+  fi
+}
 
-echo "Installing packages..."
-brew install ${PACKAGES[@]}
+main() {
+  install_xcode_clt
+  install_homebrew
+  install_bundle
+  install_oh_my_zsh
+  install_tmux_plugins
+  install_dotfiles
+  log "Cleanup"
+  brew cleanup
+  brew doctor || true
+  log "Done. Restart the terminal."
+}
 
-CASKS=(
-    figma
-    miro
-    iterm2
-    visual-studio-code
-    microsoft-teams
-    microsoft-edge
-    google-chrome
-    slack
-    ngrok
-    insomnia
-    vlc
-    tidal
-    rocket
-    protonvpn
-    powershell
-    firefox
-    lastpass
-    vivaldi
-    alacritty
-    todoist
-    hazel
-    onedrive
-    exa
-    docker
-)
-
-echo "Installing cask apps..."
-sudo -u $SUDO_USER brew install --cask ${CASKS[@]}
-
-echo "Install Nerd Font Fira Code"
-brew tap homebrew/cask-fonts
-brew install --cask font-fira-code-nerd-font
-brew install --cask font-menlo-for-powerline
-
-echo "Installing finder improvements"
-brew install --cask qlcolorcode qlimagesize qlmarkdown qlvideo quicklook-csv
-brew install --cask suspicious-package
-
-# Check for ohmyzsh, install if not installed
-if test ! $(which zsh); then
-    echo "Installing ohmyzsh..."
-    /bin/bash -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-fi
-
-echo "Installing additional zsh plugins"
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-
-echo "Installing tmux plugin manager"
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-
-echo "Installing global npm packages..."
-sudo -u $SUDO_USER npm install pnpm -g
-
-echo "Installing mac store app installer"
-brew install mas
-
-echo "Installing mac store apps"
-# Amphetamine
-mas install 937984704
-# Magnet
-mas install 441258766
-# Remote Desktop
-mas install 1295203466
-# OneNote
-mast install 784801555
-echo "Cleaning up"
-brew cleanup
-echo "Ask the doctor"
-brew doctor
-
-echo "osx bootstrapping done"
-
-# please see also the accompanying blog post
-# https://www.lotharschulz.info/2021/05/11/macos-setup-automation-with-homebrew/
+main "$@"
