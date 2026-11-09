@@ -72,7 +72,11 @@ install_tmux_plugins() {
 install_dotfiles() {
   log "dotfiles"
   local dir="$HOME/dotfiles"
-  [[ -d "$dir" ]] || git clone https://github.com/nilsml/dotfiles.git "$dir"
+  if [[ ! -d "$dir" ]]; then
+    # dotfiles is a private repo, so log in to GitHub first
+    gh auth status >/dev/null 2>&1 || gh auth login
+    gh repo clone nilsml/dotfiles "$dir"
+  fi
   if [[ -f "$dir/install.sh" ]]; then
     bash "$dir/install.sh"
   else
