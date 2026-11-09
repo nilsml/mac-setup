@@ -7,8 +7,6 @@ brew "azure-cli"
 brew "bun"
 # Dependency manager for Cocoa projects
 brew "cocoapods"
-# Pack, ship and run any application as a lightweight container
-brew "docker"
 # Modern, maintained replacement for ls
 brew "eza"
 # GitHub command-line tool
@@ -23,8 +21,6 @@ brew "grep"
 brew "jq"
 # Access large language models from the command-line
 brew "llm"
-# Esoteric programming language
-brew "lolcode"
 # Mac App Store command-line interface
 brew "mas"
 # NCurses Disk Usage
@@ -65,6 +61,8 @@ cask "battery"
 cask "codex"
 # Online diagram software
 cask "drawio"
+# App to build and share containerised applications and microservices
+cask "docker-desktop"
 # Collaborative team software
 cask "figma"
 # Web browser
@@ -75,12 +73,8 @@ cask "font-menlo-for-powerline"
 cask "google-chrome"
 # Automated organisation
 cask "hazel"
-# HTTP and GraphQL Client
-cask "insomnia"
 # Terminal emulator as alternative to Apple's Terminal app
 cask "iterm2"
-# Password manager
-cask "lastpass"
 # Multi-platform web browser
 cask "microsoft-edge"
 # Meet, chat, call, and collaborate in just one place
@@ -131,11 +125,8 @@ mas "Microsoft OneNote", id: 784801555
 mas "Microsoft To Do", id: 1274495053
 mas "Numbers", id: 409203825
 mas "Pages", id: 361309726
-mas "Pages", id: 409201541
-mas "Pocket", id: 568494494
 mas "Proton Pass for Safari", id: 6502835663
 mas "Save to Pinterest", id: 6473649042
-mas "Save to Pocket", id: 1477385213
 mas "Save to Reader", id: 1640236961
 mas "Super Agent", id: 1568262835
 mas "TestFlight", id: 899247664
@@ -202,7 +193,6 @@ vscode "ms-windows-ai-studio.windows-ai-studio"
 vscode "oracle.oracle-java"
 vscode "orta.vscode-jest"
 vscode "plievone.vscode-template-literal-editor"
-vscode "rangav.vscode-thunder-client"
 vscode "redhat.java"
 vscode "redhat.vscode-yaml"
 vscode "saoudrizwan.claude-dev"

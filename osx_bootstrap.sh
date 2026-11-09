@@ -71,9 +71,14 @@ install_tmux_plugins() {
 
 install_dotfiles() {
   log "dotfiles"
-  local dir="$HOME/Dev/dotfiles"
-  ensure_clone https://github.com/nilsml/dotfiles.git "$dir"
-  "$dir/install.sh"
+  local dir="$HOME/dotfiles"
+  # TODO: drop --branch once mac-2026 is merged into master
+  [[ -d "$dir" ]] || git clone --branch mac-2026 https://github.com/nilsml/dotfiles.git "$dir"
+  if [[ -f "$dir/install.sh" ]]; then
+    bash "$dir/install.sh"
+  else
+    echo "WARNING: $dir/install.sh not found, skipping dotfiles install." >&2
+  fi
 }
 
 main() {
