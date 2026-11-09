@@ -12,7 +12,7 @@ My setup for a new Mac. Everything installable lives in `Brewfile`; `osx_bootstr
    ./osx_bootstrap.sh
    ```
    The first run may stop after installing Xcode Command Line Tools. Run it again when that is done.
-4. Dotfiles and Claude config come from [nilsml/dotfiles](https://github.com/nilsml/dotfiles): the script clones it to `~/dotfiles` and runs its `install.sh`.
+4. Dotfiles, Claude and OpenCode config come from the private repo [nilsml/dotfiles](https://github.com/nilsml/dotfiles). The script asks you to log in with `gh auth login`, clones it to `~/dotfiles` and runs its `install.sh`.
 5. Manual: iTerm2 profile/font/hotkey, VS Code Settings Sync.
 
 ## What gets installed
