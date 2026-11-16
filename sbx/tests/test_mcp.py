@@ -83,6 +83,10 @@ class McpTest(unittest.TestCase):
         self.assertEqual(plan[0][:5], ["sbx", "mcp", "add", "browse", "--command"])
         self.assertNotIn("--sandbox", plan[0])
 
+    def test_default_browse_runner_is_beside_registration_script(self):
+        plan = mcp.browse_plan()
+        self.assertIn(f"{SBX / 'mcp_host.py'},browse", plan[0])
+
     def test_global_registration_does_not_inspect_or_load_sandbox(self):
         (self.home / "mcp_host.py").write_text("# synthetic")
         with patch.object(mcp.subprocess, "run") as run:
@@ -95,7 +99,7 @@ class McpTest(unittest.TestCase):
         plan = mcp.registration_plan("rovo")
         self.assertEqual(plan, [[
             "sbx", "mcp", "add", "rovo", "--url",
-            "https://mcp.atlassian.com/v2/mcp?tools=all", "--skip-auth",
+            "https://mcp.atlassian.com/v2/mcp", "--skip-auth",
         ]])
 
     def test_restricted_logseq_cannot_be_registered_in_public_catalog(self):

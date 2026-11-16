@@ -30,6 +30,11 @@ def sandbox_info():
 
 
 class StartTests(unittest.TestCase):
+    def setUp(self):
+        connection = patch.object(START["logseq"], "connection", return_value=None)
+        connection.start()
+        self.addCleanup(connection.stop)
+
     def test_new_sandbox_uses_dynamic_mcp_catalog(self):
         create, _ = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
         self.assertNotIn("--static-mcp", create)
@@ -124,6 +129,9 @@ class StartTests(unittest.TestCase):
 
 class ContentStartTests(unittest.TestCase):
     def setUp(self):
+        connection = patch.object(START["logseq"], "connection", return_value=None)
+        connection.start()
+        self.addCleanup(connection.stop)
         runtime = ROOT / "tests/.runtime"
         runtime.mkdir(exist_ok=True)
         temporary = tempfile.TemporaryDirectory(dir=runtime)

@@ -7,8 +7,8 @@ from pathlib import Path
 import subprocess
 
 
-DEFAULT_LAUNCHER = Path.home() / ".local/share/opencode-sbx/launcher"
-ROVO_URL = "https://mcp.atlassian.com/v2/mcp?tools=all"
+DEFAULT_LAUNCHER = Path(__file__).resolve().parent
+ROVO_URL = "https://mcp.atlassian.com/v2/mcp"
 
 
 def browse_plan(launcher=DEFAULT_LAUNCHER):

@@ -106,15 +106,35 @@ process authority or sandbox and is outside this implementation.
 `python3 sbx/mcp.py rovo` prints the shared registration plan:
 
 ```sh
-sbx mcp add rovo --url 'https://mcp.atlassian.com/v2/mcp?tools=all' --skip-auth
+sbx mcp add rovo --url 'https://mcp.atlassian.com/v2/mcp' --skip-auth
 ```
 
-The URL is from Atlassian's official guide; the flat tool list is recommended
-there for gateways. `--apply` executes the registration only. Authentication
+The URL is from Atlassian's official guide. The `?tools=all` variant fails
+sbx 0.53.0's resource-identity check because the OAuth metadata names the URL
+without its query. Supplying `--resource` did not bypass that check; the canonical
+URL registered successfully. `--apply` executes the registration only. Authentication
 is intentionally separate: the user runs `sbx mcp auth rovo` in their terminal.
 Until verified, report it as awaiting authentication, not connected.
 
 ## Remaining activation draft
+
+Current activation state: `oc` now points to `launcher-mcp-v2`, Browse is
+registered against that same installation, and the unused intermediate
+`launcher-mcp` copy has been removed. The original `launcher` is retained
+because an existing sandbox still references its kits. Browse relay and its
+extension are connected; dynamic discovery, loading and the Browse `status`
+tool succeeded from the v2 test sandbox without reading private tabs.
+Rovo is registered at the canonical URL and awaits user authentication.
+The installed helper has now been synchronized with those source changes.
+Logseq now runs under the approved `com.opencode-sbx.logseq` user LaunchAgent.
+
+Browse lifecycle verification showed that no custom LaunchAgent is needed:
+with our Browse LaunchAgent unloaded and the relay stopped, MCP initialization
+and `status` did not start the relay, but an ordinary `session_new` call did.
+A subsequent MCP `status` succeeded, and the extension was connected. The test
+session was deleted without reading private tabs. Our Browse LaunchAgent is
+unloaded and its plist removed after approval. Let Browse manage its
+own relay instead of using `browse serve` as a permanent service.
 
 These external changes require approval of paths and content before execution:
 
