@@ -62,6 +62,14 @@ python3 ~/Dev/mac-setup/sbx/start.py .
 
 The launcher creates or reopens the environment and registers missing provider credentials without putting API keys in the repository. Initial setup requires an interactive terminal and provider sign-in on the host.
 
+For a menu of existing OpenCode environments, including opening and confirmed stopping:
+
+```sh
+python3 ~/Dev/mac-setup/sbx/oc.py
+```
+
+It also accepts `.`, `list`, `open NAME`, `shell NAME`, and `stop NAME`. No shell shortcut is installed automatically.
+
 ## Before wiping the old Mac
 
 - `brew bundle dump --file=Brewfile --describe --force` and commit

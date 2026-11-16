@@ -13,9 +13,12 @@ Verifisert 16. november 2026 med `sbx` 0.53.0 og OpenCode 2.3.0:
 - Nord-tema, Powerline-plugin og et kort, Linux-tilpasset instruksjonsutvalg.
 - Minimale modellkall til GPT-6.1 Sol, Claude Opus 5.5 og Bergets GLM-5.3 Flash svarte `OK` i `opencode-work`.
 - Seks Berget-modeller er konfigurert. Bare GLM er funksjonstestet.
-- Oppstartsscriptet er testet med simulerte CLI-kall og lesende kontroll mot eksisterende sandbox. Ny opprettelse gjennom scriptet må fortsatt prøves i terminalen.
+- Ny sandbox er opprettet gjennom oppstartsscriptet med pseudo-terminal, begge mixinene og registrering av manglende modellsecrets.
+- Personlig og syntetisk prosjektlokal skill er oppdaget og brukt av GPT-6.1 Sol. Navnekollisjon stoppet installasjonen uten filendringer.
+- Skills, samtalemetadata og alle meldinger var bevart etter bekreftet stopp/start.
+- `oc.py` er testet med enhetstester, ekte lesende oppslag, prosjektgjenkjenning, åpning/avslutning av TUI i pseudo-terminal og bekreftet stopp av testsandboxen.
 
-Agenter og skills er neste leveranse. MCP, inkludert Browse og Logseq, er utsatt. Full kontroll av tastatursnarveier, terminalvisning og persistens gjenstår.
+Skills har en avgrenset pilot som installeres separat. Generell integrering, øvrige skills og backup/gjenoppretting gjenstår. Deretter kommer MCP og til slutt agenter. Visuell kontroll i vanlig terminal og full kontroll av tastatursnarveier gjenstår.
 
 ## Første oppsett på en Mac
 
@@ -33,6 +36,37 @@ opencode auth list
 ChatGPT-innloggingen skal være registrert i `sbx` **før sandboxen opprettes**. Anthropic og Berget må ha aktive API-nøkkelinnlogginger i Macens OpenCode, slik at engangsoverføringen kan hente dem.
 
 ## Daglig bruk
+
+`oc.py` gir én inngang for prosjektoppstart og eksisterende miljøer:
+
+```sh
+python3 ~/Dev/mac-setup/sbx/oc.py           # Meny med navn, status og prosjekt
+python3 ~/Dev/mac-setup/sbx/oc.py .         # Opprett eller gjenåpne prosjektmiljø
+python3 ~/Dev/mac-setup/sbx/oc.py list
+python3 ~/Dev/mac-setup/sbx/oc.py open NAVN
+python3 ~/Dev/mac-setup/sbx/oc.py shell NAVN
+python3 ~/Dev/mac-setup/sbx/oc.py stop NAVN
+```
+
+Kortkommandoen `oc` installeres ikke av scriptet. Den er lagt inn separat i brukerens dotfiles etter godkjenning. For gjeldende zsh-økt kan du definere:
+
+```sh
+oc() { python3 "$HOME/Dev/mac-setup/sbx/oc.py" "$@"; }
+```
+
+Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop NAVN` tilstrekkelig. Permanent shelloppsett gjøres separat i dotfiles etter godkjenning.
+
+- Menyen lar deg velge miljø, så åpne OpenCode med Enter, terminal med `t` eller stoppe med `s`. `q` avbryter.
+- `oc shell NAVN` åpner zsh som `agent` i prosjektmappen, i gjeldende terminal. Utelat navnet for å velge fra menyen. Sandboxen starter ved behov. `exit` avslutter shelløkten; den kan holde sandboxen i gang så lenge den er åpen.
+- Prosjektoppstart finner også miljøer med eldre navn. Hvis flere miljøer peker på samme prosjektmappe, må du velge. Uten interaktiv terminal må navnet angis med `--name`.
+- Åpning starter en stoppet sandbox eller kobler en ny OpenCode-klient til samme miljø og historikk. Den garanterer ikke automatisk valg av en bestemt samtale. Separate miljøer krever separate terminalfaner.
+- Åpning av et eksisterende miljø utfører ingen credential-registrering, kit-oppgradering eller skill-installasjon. Dette gjør også eldre OpenCode-miljøer tilgjengelige fra menyen.
+- Stopp av et kjørende miljø krever bekreftelse og avbryter aktive prosesser. Et allerede stoppet miljø blir stående urørt.
+- `open NAVN --dry-run`, `shell NAVN --dry-run` og `stop NAVN --dry-run` viser bare planen. `oc . --dry-run` bruker oppstartsscriptets lesende kontroll.
+- `--all-tabs` gjelder åpning/prosjektoppstart. `--setup-only` og `--name` gjelder prosjektoppstart. Bruk `oc project STI` hvis mappenavnet er et reservert kommandonavn.
+- Det finnes ingen slettekommando, automatisk oppgradering eller bakgrunnsmodus.
+
+Det opprinnelige oppstartsscriptet kan fortsatt brukes direkte:
 
 Kjør fra prosjektmappen, uavhengig av hvor `mac-setup` er klonet:
 
@@ -107,7 +141,7 @@ sbx exec -it opencode-work zsh -l
 sbx stop opencode-work
 ```
 
-Installerte programmer, shellhistorikk og OpenCode-data skal overleve stopp og oppstart så lenge sandboxen finnes. Dette er dokumentert av Docker, men full persistens er ikke ende-til-ende-testet her.
+Installerte programmer, shellhistorikk og OpenCode-data skal overleve stopp og oppstart så lenge sandboxen finnes. I det syntetiske testmiljøet er skills, eierskapsmetadata og en OpenCode-samtale med alle meldinger kontrollert før og etter stopp/start. Dette verifiserer ikke alle datatyper eller gjenoppretting etter sletting.
 
 **Stopp er den vanlige handlingen når du vil frigjøre ressurser.** Behandle sletting som potensielt tap av intern historikk og filer. Noen kit-eide volumer kan overleve sletting, men vi har ikke verifisert hvordan denne kit-versjonen gjenkobler dem. Ta separat sikkerhetskopi før sletting. Git av prosjektet tar ikke backup av sandboxens interne data.
 
@@ -138,11 +172,12 @@ Ikke bruk dette scriptet som en dynamisk `--command`-kilde: repoet er skrivbart 
 
 ```text
 sbx/
+├── oc.py            # Meny, liste, prosjektoppstart, åpning og bekreftet stopp
 ├── start.py
 ├── personal/       # Shellverktøy, Nord, Powerline og instruksjoner
 ├── models/         # Berget-oppsett og credential-deklarasjon
 ├── scripts/        # Miljøkontroll og engangsoverføring av API-nøkler
-├── tests/          # Tester uten opprettelse eller sletting av sandboxer
+├── tests/          # Enhetstester uten opprettelse eller sletting av sandboxer
 └── HISTORY.md      # Verifiserte funn fra utprøvingen
 ```
 
@@ -169,9 +204,9 @@ sbx exec -i NAVN sh < ~/Dev/mac-setup/sbx/scripts/check-environment.sh
 
 **MÅ**
 
-- Prøve ny opprettelse gjennom oppstartsscriptet i en interaktiv terminal.
-- Velge og gjennomgå agenter og skills for Linux-miljøet.
-- Kontrollere historikk og sesjoner etter stopp og oppstart.
+- Avklare en støttet installerkontrakt og integrering av skill-piloten.
+- Velge og gjennomgå øvrige skills med eksplisitte verktøyavhengigheter.
+- Kontrollere den daglige TUI-flyten visuelt i vanlig terminal.
 
 **BØR**
 
@@ -180,7 +215,8 @@ sbx exec -i NAVN sh < ~/Dev/mac-setup/sbx/scripts/check-environment.sh
 
 **SENERE**
 
-- Browse og øvrige MCP-tjenester, med avgrenset transport og autentisering til Macen.
+- MCP, først aktuelle tjenester som Browse, med avgrenset transport og autentisering til Macen.
+- Agenter etter at skill- og MCP-avhengighetene er på plass.
 - Ollama, som krever en separat vurdering av vertstilgang.
 
 ## Kilder
