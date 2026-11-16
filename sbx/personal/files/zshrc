@@ -1,0 +1,23 @@
+export ZSH=/opt/oh-my-zsh
+export ZSH_CACHE_DIR="$HOME/.cache/oh-my-zsh"
+mkdir -p "$ZSH_CACHE_DIR"
+ZSH_THEME=""
+zstyle ':omz:update' mode disabled
+zstyle ':completion:*' menu select
+plugins=(git gh z docker dotenv npm)
+source "$ZSH/oh-my-zsh.sh"
+
+HISTFILE="$HOME/.local/state/zsh/history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS
+
+export EDITOR=nvim
+export PATH="$HOME/.local/bin:$PATH"
+source "$HOME/.config/zsh/aliases.zsh"
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+eval "$(starship init zsh)"
+
+# Markøren endrer ikke Starships standardmoduler.
+PROMPT="%F{cyan}[sbx]%f $PROMPT"
+source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

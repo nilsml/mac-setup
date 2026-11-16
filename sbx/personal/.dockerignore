@@ -1,0 +1,6 @@
+*
+!personal.yaml
+!personal.dockerfile
+!install.sh
+!files/
+!files/**

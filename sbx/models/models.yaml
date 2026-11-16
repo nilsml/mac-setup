@@ -1,0 +1,28 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: Personlige modellleverandører
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - api.berget.ai:443
+  - type: com.docker.sandbox/credential@1
+    config:
+      service: berget
+      phase: runtime
+      apiKey:
+        name: BERGET_API_KEY
+        proxyManaged: true
+        inject:
+          - domain: api.berget.ai
+            header: Authorization
+            format: "Bearer %s"
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      install:
+        - command: [python3, /opt/personal-models/install.py]
+          user: "1000"
+          description: Legg til Berget uten å endre andre leverandører

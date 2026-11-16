@@ -1,0 +1,26 @@
+{
+  "berget": {
+    "name": "Berget.AI",
+    "env": ["BERGET_API_KEY"],
+    "package": "@opencode/ai/providers/openai-compatible",
+    "settings": {
+      "baseURL": "https://api.berget.ai/v1"
+    },
+    "models": {
+      "zai-org/GLM-5.3-Flash": {
+        "name": "GLM-5.3 Flash"
+      },
+      "moonshotai/Kimi-K3.1-Pro": {
+        "name": "Kimi K3.1 Pro"
+      },
+      "google/gemma-4-31B-it": {
+        "name": "Gemma 4 31B"
+      },
+      "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+        "name": "Mistral Small 3.2"
+      },
+      "moonshotai/Kimi-K3": {},
+      "Qwen/Qwen3.8-27B-FP8": {}
+    }
+  }
+}

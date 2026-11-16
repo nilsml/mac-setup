@@ -1,0 +1,8 @@
+alias q='exit'
+alias ll='ls -l'
+alias l='eza --long --header --git -a'
+alias lsd='ls -l | grep "^d"'
+alias md='mkdir'
+alias g='git'
+alias gs='git status -s'
+alias gp='git pull'

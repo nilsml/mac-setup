@@ -52,6 +52,16 @@ brew bundle cleanup --file=Brewfile   # lists what is installed but not in Brewf
 - Prompt: [starship](https://starship.rs)
 - Font: Fira Code Nerd Font
 
+## OpenCode in Docker Sandboxes
+
+See [sbx/README.md](sbx/README.md) for the reusable OpenCode sandbox setup, credentials, session lifecycle, and project launcher. Each project gets its own persistent sandbox:
+
+```sh
+python3 ~/Dev/mac-setup/sbx/start.py .
+```
+
+The launcher creates or reopens the environment and registers missing provider credentials without putting API keys in the repository. Initial setup requires an interactive terminal and provider sign-in on the host.
+
 ## Before wiping the old Mac
 
 - `brew bundle dump --file=Brewfile --describe --force` and commit
