@@ -71,8 +71,10 @@ Private host state, created only on explicit activation:
 
 New sandboxes receive only the MCP connection through stdin, never the Logseq
 API token. `mcp_runtime.py` atomically adds the named `mcp.servers.logseq`
-connection and three native global denial rules to private `opencode.json`
-(mode 0600). Existing providers, plugins, servers and unrelated rules are preserved.
+connection and three native global denial rules to the sandbox's `opencode.json`.
+The file is written with mode 0600, but the upstream gateway startup rewrites it
+as 0644 on each start. All agents share the sandbox user, so file mode is not a
+boundary in either case. Existing providers, plugins, servers and unrelated rules are preserved.
 Legacy Docker-generated flat server entries are normalized to `mcp.servers`.
 Conflicting Logseq connections are refused.
 
@@ -178,6 +180,15 @@ can remain at its current stable path.
   endpoint inside the test sandbox. This verifies the native OpenCode boundary,
   not the complete production launcher, host HTTP transport or service lifecycle.
   Those still require approved activation and end-to-end verification.
+- End-to-end launcher test, 16 November 2026: the 24-file installation from
+  commit `8decc04` in `~/.local/share/opencode-sbx/launcher-mcp-v2/` created a
+  new sandbox through `start.py --content --setup-only`. Content layers, model
+  keys, the cleared inline override and the Logseq connection were configured.
+  Both `logseq` (host HTTP route, foreground `logseq.py --serve`) and the gateway
+  reported connected. The Logseq agent read a synthetic missing page through
+  Code Mode against the real graph; Main's equivalent call was unknown/denied.
+  No writes were attempted against the real graph. The sandbox and host
+  service were stopped afterwards.
 - Do not write to the real graph for a permission test.
 
 References:
