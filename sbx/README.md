@@ -1,6 +1,6 @@
 # OpenCode i Docker Sandboxes
 
-Gjenbrukbart Linux-miljø for OpenCode, med **én vedvarende sandbox per prosjekt**. Bare prosjektmappen monteres fra Macen, med skrivetilgang. Bredere arbeid gjøres utenfor `sbx`.
+Gjenbrukbart Linux-miljø for OpenCode, med **én utskiftbar sandbox per prosjekt**. Prosjektmappen monteres skrivbart. Nye miljøer kan i tillegg få skrivebeskyttede innholdsmounts. Varig arbeid skal ligge i prosjektmounten eller eksterne systemer.
 
 Oppskriftene hører hjemme i `mac-setup`. Innlogging, API-nøkler, databaser og samtaler skal ikke i Git eller images.
 
@@ -18,7 +18,9 @@ Verifisert 16. november 2026 med `sbx` 0.53.0 og OpenCode 2.3.0:
 - Skills, samtalemetadata og alle meldinger var bevart etter bekreftet stopp/start.
 - `oc.py` er testet med enhetstester, ekte lesende oppslag, prosjektgjenkjenning, åpning/avslutning av TUI i pseudo-terminal og bekreftet stopp av testsandboxen.
 
-Skills har en avgrenset pilot som installeres separat. Generell integrering, øvrige skills og backup/gjenoppretting gjenstår. Deretter kommer MCP og til slutt agenter. Visuell kontroll i vanlig terminal og full kontroll av tastatursnarveier gjenstår.
+Ny innholdslevering bruker levende, skrivebeskyttede mounts, uten pins eller kopiering av skills og agenter. Se [CONTENT-MOUNTS.md](CONTENT-MOUNTS.md). Vertskatalog, personlig hovedagent og grunninstruksjoner må godkjennes og aktiveres separat. Den eldre installasjonspiloten beholdes. MCP og funksjonstest av spesialagenter kommer etter grunnleveransen.
+
+MCP bruker en felles vertskatalog. Nye miljøer fra den oppdaterte launcheren får dynamisk oppdagelse og lasting av registrerte tjenester ved behov. Eksisterende miljøer beholdes uendret, uten migrering eller ettermontering. Browse er registrert globalt; relay-/nettlesertilkobling er ikke bekreftet. Separat Logseq-forbindelse med innebygde V2-agentrettigheter og en global Rovo-registreringsplan er implementert. Egen tilgangsplugin er fjernet. Agentgrensen er testet i ny sandbox mot en syntetisk Logseq-tjeneste. Full ekstern aktivering og ende-til-ende-test gjenstår. Installert launcher er ikke automatisk oppdatert. Se [MCP.md](MCP.md).
 
 ## Første oppsett på en Mac
 
@@ -40,25 +42,30 @@ ChatGPT-innloggingen skal være registrert i `sbx` **før sandboxen opprettes**.
 `oc.py` gir én inngang for prosjektoppstart og eksisterende miljøer:
 
 ```sh
-python3 ~/Dev/mac-setup/sbx/oc.py           # Meny med navn, status og prosjekt
-python3 ~/Dev/mac-setup/sbx/oc.py .         # Opprett eller gjenåpne prosjektmiljø
-python3 ~/Dev/mac-setup/sbx/oc.py list
-python3 ~/Dev/mac-setup/sbx/oc.py open NAVN
-python3 ~/Dev/mac-setup/sbx/oc.py shell NAVN
-python3 ~/Dev/mac-setup/sbx/oc.py stop NAVN
+python3 ~/.local/share/opencode-sbx/launcher/oc.py           # Meny med navn, status og prosjekt
+python3 ~/.local/share/opencode-sbx/launcher/oc.py .         # Opprett eller gjenåpne prosjektmiljø
+python3 ~/.local/share/opencode-sbx/launcher/oc.py list
+python3 ~/.local/share/opencode-sbx/launcher/oc.py open NAVN
+python3 ~/.local/share/opencode-sbx/launcher/oc.py shell NAVN
+python3 ~/.local/share/opencode-sbx/launcher/oc.py stop NAVN
+python3 ~/.local/share/opencode-sbx/launcher/oc.py capabilities .
 ```
 
 Kortkommandoen `oc` installeres ikke av scriptet. Den er lagt inn separat i brukerens dotfiles etter godkjenning. For gjeldende zsh-økt kan du definere:
 
 ```sh
-oc() { python3 "$HOME/Dev/mac-setup/sbx/oc.py" "$@"; }
+oc() { python3 "$HOME/.local/share/opencode-sbx/launcher/oc.py" "$@"; }
 ```
 
 Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop NAVN` tilstrekkelig. Permanent shelloppsett gjøres separat i dotfiles etter godkjenning.
 
 - Menyen lar deg velge miljø, så åpne OpenCode med Enter, terminal med `t` eller stoppe med `s`. `q` avbryter.
+- I et Git-repo bruker `oc .` repo-roten som skrivbar mount og stabil sandboxidentitet, også når du står i en undermappe. Valgt undermappe beholdes som startkatalog. Et nestet repo bruker sin egen rot. Utenfor Git brukes mappen du oppgir.
+- Git-roten kan ikke være hjemmemappen eller filsystemroten. Git-feil avbryter oppstarten. Arvede `GIT_*`-overstyringer ignoreres ved prosjektoppdagelse.
+- Koblede worktrees, submoduler og andre repoer med Git-metadata utenfor prosjektroten avvises foreløpig ved prosjektoppstart. Ingen ekstra mount legges til, og worktrees slås aldri sammen med hovedrepoets miljø. Støtte krever egen mountavklaring.
 - `oc shell NAVN` åpner zsh som `agent` i prosjektmappen, i gjeldende terminal. Utelat navnet for å velge fra menyen. Sandboxen starter ved behov. `exit` avslutter shelløkten; den kan holde sandboxen i gang så lenge den er åpen.
 - Prosjektoppstart finner også miljøer med eldre navn. Hvis flere miljøer peker på samme prosjektmappe, må du velge. Uten interaktiv terminal må navnet angis med `--name`.
+- Eldre miljøer som bare monterer en undermappe, migreres ikke og velges ikke automatisk som miljø for hele repoet. Bruk `oc open NAVN` for å gjenåpne dem med opprinnelig mount.
 - Åpning starter en stoppet sandbox eller kobler en ny OpenCode-klient til samme miljø og historikk. Den garanterer ikke automatisk valg av en bestemt samtale. Separate miljøer krever separate terminalfaner.
 - Åpning av et eksisterende miljø utfører ingen credential-registrering, kit-oppgradering eller skill-installasjon. Dette gjør også eldre OpenCode-miljøer tilgjengelige fra menyen.
 - Stopp av et kjørende miljø krever bekreftelse og avbryter aktive prosesser. Et allerede stoppet miljø blir stående urørt.
@@ -66,7 +73,58 @@ Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop
 - `--all-tabs` gjelder åpning/prosjektoppstart. `--setup-only` og `--name` gjelder prosjektoppstart. Bruk `oc project STI` hvis mappenavnet er et reservert kommandonavn.
 - Det finnes ingen slettekommando, automatisk oppgradering eller bakgrunnsmodus.
 
+### Nye miljøer med innholdsmounts
+
+`oc . --name NYTT-NAVN` bruker katalogformat 2 til å velge skrivebeskyttede
+innholdsmounts. Alle kilder vises før opprettelse. Global hovedagent,
+instruksjonsfiler og skill-kilder registreres i det nye miljøet, uten å
+overskrive Docker-genererte providers eller global `AGENTS.md`.
+
+Eldre miljøer åpnes uten ettermontering eller innholdsregistrering. Velg
+et nytt navn for den nye løsningen. Ved feil under førstegangsoppsett
+beholdes miljøet; rett årsaken og velg et nytt navn. Ingen automatisk
+reparasjon eller sletting.
+
+Før aktivering kreves en gjennomgått launcher utenfor prosjektmountene:
+
+```sh
+# Viser bare kopiplanen. Skriver ingenting.
+python3 sbx/install-launcher.py
+```
+
+Installasjon med `--apply`, endring av `oc`-funksjonen og endring av privat
+vertskatalog krever separat godkjenning. Eksisterende katalogformat 1 kan
+fortsatt brukes for lesende lagvalg, men kan ikke opprette innholdsmounts.
+`--catalog FIL` velger en eksplisitt katalog ved prosjektoppstart.
+
+### Lesende lagvalg
+
+`oc capabilities` viser hvilke innholdslag prosjektmappen skal få.
+Utelatt argument betyr gjeldende mappe. Du kan også oppgi en sti eller et
+eksisterende sandboxnavn:
+
+```sh
+oc capabilities
+oc capabilities /sti/til/prosjekt
+oc capabilities opencode-work
+```
+
+Den bruker en betrodd vertskatalog i `~/.config/opencode-sbx/catalog.json`.
+Katalogen er privat vertskonfigurasjon og skal ikke fylles med credentials.
+Bare lokal metadata leses; ingen sandbox startes eller endres.
+`--catalog FIL` velger en eksplisitt katalogfil for kontroll.
+
+**Denne kommandoen viser bare forventede lag.** Den installerer ikke
+komponenter og beviser ikke at skills, MCP, agenter eller hovedinstruksjoner
+er tilgjengelige. Lagvalg aktiverer ikke innholdslevering ved oppstart.
+
+Format og sikkerhetsgrenser står i [CONTENT-MOUNTS.md](CONTENT-MOUNTS.md).
+
 Det opprinnelige oppstartsscriptet kan fortsatt brukes direkte:
+
+`start.py` bruker nøyaktig mappen du oppgir som mount, uten automatisk Git-rot.
+Bare `oc.py` utfører den nye prosjektoppdagelsen. Bruk `--workdir UNDERMAPPE`
+med `start.py` for en annen startkatalog innenfor den eksplisitte mounten.
 
 Kjør fra prosjektmappen, uavhengig av hvor `mac-setup` er klonet:
 
@@ -83,7 +141,7 @@ Ved første kjøring:
 
 Senere kjøringer gjenåpner samme sandbox. Navnet avledes fra mappens navn og en hash av den absolutte stien. Flytting av prosjektmappen gir et nytt navn. Scriptet sletter eller gjenskaper aldri en eksisterende sandbox.
 
-Scriptet monterer ikke hele `~/Dev`, hjemmemappen eller naboprosjekter. En eksisterende sandbox må ha riktig prosjektmappe, begge mixinene og nøyaktig én skrivbar vertsmount. Velger du selv en overordnet mappe som argument, blir hele den mappen tilgjengelig. Velg derfor prosjektroten.
+Scriptet monterer ikke hele `~/Dev` eller hjemmemappen. Direkte bruk uten `--content` krever én skrivbar prosjektmount og begge mixinene. Med `--content` kontrolleres i tillegg nøyaktig de valgte skrivebeskyttede innholdsmountene. Velger du selv en overordnet mappe som prosjekt, blir hele den mappen tilgjengelig. Velg derfor prosjektroten.
 
 ### Eksisterende arbeidsmiljø
 
@@ -120,7 +178,7 @@ OpenCode støtter `tabs.scope: "global"` på tvers av mapper i samme server. Val
 python3 ~/Dev/mac-setup/sbx/start.py . --all-tabs
 ```
 
-Dette forener ikke separate sandboxer. Standardoppsettet holder én prosjektmappe per sandbox.
+Dette forener ikke separate sandboxer. Standardoppsettet holder én skrivbar prosjektmappe per sandbox.
 
 ## Livsløp: exit, stopp og sletting
 
@@ -174,6 +232,10 @@ Ikke bruk dette scriptet som en dynamisk `--command`-kilde: repoet er skrivbart 
 sbx/
 ├── oc.py            # Meny, liste, prosjektoppstart, åpning og bekreftet stopp
 ├── start.py
+├── profiles.py      # Privat katalog og lagvalg
+├── content.py       # Lesende mountplan og kollisjonskontroll
+├── content_runtime.py # Registrering inne i en ny sandbox
+├── install-launcher.py # Eksplisitt kopiplan for betrodd launcher
 ├── personal/       # Shellverktøy, Nord, Powerline og instruksjoner
 ├── models/         # Berget-oppsett og credential-deklarasjon
 ├── scripts/        # Miljøkontroll og engangsoverføring av API-nøkler
@@ -204,19 +266,20 @@ sbx exec -i NAVN sh < ~/Dev/mac-setup/sbx/scripts/check-environment.sh
 
 **MÅ**
 
-- Avklare en støttet installerkontrakt og integrering av skill-piloten.
-- Velge og gjennomgå øvrige skills med eksplisitte verktøyavhengigheter.
+- Godkjenne og aktivere vertskatalog, hovedagent, felles instruksjoner og betrodd launcher.
+- Verifisere personlig oppsett og alle innholdslag i nye sandboxer.
+- Gjennomgå skill-avhengigheter og koble til nødvendige MCP-tjenester.
 - Kontrollere den daglige TUI-flyten visuelt i vanlig terminal.
 
 **BØR**
 
-- Dokumentere og teste sikkerhetskopiering og gjenoppretting.
+- Avklare hva som skal bevares utenfor de utskiftbare sandboxene.
 - Gjennomgå oppdateringsrutine og checksumverifisering av nedlastinger.
 
 **SENERE**
 
 - MCP, først aktuelle tjenester som Browse, med avgrenset transport og autentisering til Macen.
-- Agenter etter at skill- og MCP-avhengighetene er på plass.
+- Funksjonstest av spesialagenter etter at skill- og MCP-avhengighetene er på plass.
 - Ollama, som krever en separat vurdering av vertstilgang.
 
 ## Kilder

@@ -3,12 +3,14 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 
+import profiles
 import start
 
 
@@ -76,6 +78,42 @@ def project_matches(entries, workspace):
     ]
 
 
+def project_workspace(directory):
+    # Finn innerste repo uten å la arvede Git-overstyringer velge et annet.
+    candidates = (directory, *directory.parents)
+    root = next(
+        (path for path in candidates if (path / ".git").exists() or (path / ".git").is_symlink()),
+        None,
+    )
+    if root is None:
+        return directory
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_NO_REPLACE_OBJECTS="1", GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0")
+
+    def git_path(*args):
+        result = subprocess.run(
+            ["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+             "-C", str(root), "rev-parse", *args],
+            env=env, capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            raise ValueError("Kunne ikke kontrollere Git-roten. Ingen sandbox startet eller endret.")
+        return (root / result.stdout.strip()).resolve()
+
+    workspace = git_path("--show-toplevel")
+    if workspace != root or not directory.is_relative_to(workspace):
+        raise ValueError("Git-roten avviker fra prosjektstien. Ingen sandbox startet eller endret.")
+    metadata = (git_path("--absolute-git-dir"), git_path("--git-common-dir"))
+    if any(not path.is_relative_to(workspace) for path in metadata):
+        raise ValueError(
+            "Prosjektet har Git-metadata utenfor prosjektroten, som ved koblede worktrees "
+            "eller submoduler. Dette krever egen mountavklaring og støttes foreløpig ikke "
+            "av prosjektoppstart. Ingen ekstra mount er lagt til. "
+            "Et eksisterende miljø kan fortsatt åpnes med oc open NAVN."
+        )
+    return workspace
+
+
 def checked_info(entry):
     info = start.inspect_sandbox(entry["name"])
     if info.get("name") != entry["name"] or info.get("agent") != "opencode":
@@ -126,9 +164,12 @@ def stop_existing(entry, dry_run=False):
 
 
 def project(entries, path, args):
-    workspace = Path(path).expanduser().resolve()
-    if not workspace.is_dir() or workspace in (Path("/"), Path.home()):
+    directory = Path(path).expanduser().resolve()
+    if not directory.is_dir() or directory in (Path("/"), Path.home()):
         raise ValueError("Velg en eksisterende prosjektmappe, ikke hjemmemappen eller filsystemroten.")
+    workspace = project_workspace(directory)
+    if workspace in (Path("/"), Path.home()):
+        raise ValueError("Git-roten kan ikke være hjemmemappen eller filsystemroten.")
     matches = project_matches(entries, workspace)
     name = args.name
     if not name and matches:
@@ -136,7 +177,9 @@ def project(entries, path, args):
         if selected is None:
             return
         name = selected["name"]
-    command = [sys.executable, str(ROOT / "start.py"), str(workspace)]
+    command = [sys.executable, str(ROOT / "start.py"), str(workspace), "--content"]
+    if directory != workspace:
+        command += ["--workdir", str(directory)]
     if name:
         validate_name(name)
         command += ["--name", name]
@@ -146,6 +189,8 @@ def project(entries, path, args):
         command.append("--all-tabs")
     if args.setup_only:
         command.append("--setup-only")
+    if getattr(args, "catalog", None):
+        command += ["--catalog", str(args.catalog)]
     # start.py eier opprettelse, mountkontroll, secrets og første bekreftelse.
     # Kjør også i dry-run for å vise den eksisterende lesende oppstartsplanen.
     subprocess.run(command, check=True)
@@ -154,24 +199,36 @@ def project(entries, path, args):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__,
-        epilog="Uten argument: meny. Eksempler: oc . | oc list | oc open NAVN | oc shell NAVN | oc stop NAVN",
+        epilog="Uten argument: meny. Eksempler: oc . | oc list | oc open NAVN | oc shell NAVN | oc stop NAVN | oc capabilities .",
     )
-    parser.add_argument("action", nargs="?", default="menu", help="list, open, shell, stop, project eller prosjektsti")
+    parser.add_argument("action", nargs="?", default="menu", help="list, open, shell, stop, capabilities, project eller prosjektsti")
     parser.add_argument("target", nargs="?", help="Sandboxnavn, eller sti etter project")
     parser.add_argument("--name", help="Eksplisitt sandboxnavn ved prosjektoppstart")
     parser.add_argument("--dry-run", action="store_true", help="Vis plan uten å starte eller endre miljøer")
     parser.add_argument("--all-tabs", action="store_true", help="Vis tabs fra samme OpenCode-server")
     parser.add_argument("--setup-only", action="store_true", help="Bare prosjektoppsett, uten TUI")
+    parser.add_argument("--catalog", type=Path, help="Betrodd katalogfil for lagvalg og nye innholdsmounts")
     args = parser.parse_args(argv)
-    is_project = args.action not in ("menu", "list", "open", "shell", "stop")
+    is_project = args.action not in ("menu", "list", "open", "shell", "stop", "capabilities")
     if not is_project and (args.name or args.setup_only):
         parser.error("--name og --setup-only gjelder bare prosjektoppstart.")
-    if args.all_tabs and args.action in ("list", "shell", "stop"):
+    if args.all_tabs and args.action in ("list", "shell", "stop", "capabilities"):
         parser.error("--all-tabs gjelder bare åpning av OpenCode.")
+    if args.catalog and not is_project and args.action != "capabilities":
+        parser.error("--catalog gjelder bare capabilities og prosjektoppstart.")
     if args.action in ("menu", "list") and args.target:
         parser.error("Denne kommandoen tar ikke et ekstra argument.")
     if is_project and args.action != "project" and args.target:
         parser.error("Bruk oc project STI for eksplisitt prosjektoppstart.")
+    if args.action == "capabilities":
+        workspace = Path(args.target or ".").expanduser()
+        if not workspace.is_dir():
+            info = checked_info(named(sandboxes(), args.target))
+            if not info.get("workspace"):
+                raise ValueError("Sandboxen har ingen prosjektmappe.")
+            workspace = Path(info["workspace"])
+        profiles.show_plan(workspace, args.catalog or profiles.DEFAULT_CATALOG)
+        return
     entries = sandboxes()
     if is_project:
         project(entries, (args.target or ".") if args.action == "project" else args.action, args)

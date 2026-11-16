@@ -58,3 +58,98 @@ Verifisert 16. november 2026 med `sbx` 0.53.0 og OpenCode 2.3.0 på macOS.
 - `opencode-test` og `opencode-oauth-test` er beholdt som testmiljøer.
 - Eksisterende `opencode-Solea` ble ikke endret.
 - Ingen sandboxer er slettet som del av denne arbeidsflyten.
+
+## Innholdslag: lesende grunnlag
+
+- `profiles.py` velger lag fra en privat vertskatalog. `oc capabilities`
+  viser forventet lagsett for en prosjektsti eller et eksisterende miljø.
+- Repoavgrensning krever både riktig oppløst repo-rot og forventet lokalt
+  konfigurert origin. Et mappenavn alene er ikke tilstrekkelig.
+- Kontroller mot faktiske personlige mapper, arbeidsrot, arbeidsprosjekter,
+  det avtalte produktrepoet og en undermappe bestod. Et eksisterende
+  sandboxnavn ble også kontrollert med bare metadataoppslag.
+- 61 enhetstester består. Nye tester dekker blant annet stiavgrensning,
+  symlinker, feil repoidentitet, nestet repo, Git-miljøvariabler og
+  credential-lignende verdier i katalogen.
+- Vertskatalogen er lagt inn separat i dotfiles etter godkjenning. Bare
+  katalogfilen tillates i Git; andre filer i samme configmappe ignoreres.
+- Dette velger ikke komponentversjoner og installerer ingen skills,
+  hovedinstruksjoner, MCP-servere eller agenter. Oppstartsadferden er uendret.
+- Utkastet til en felles, versjonslåst profilkontrakt ble senere erstattet
+  av levende innholdsmounts. Se `CONTENT-MOUNTS.md`.
+
+## Prosjektidentitet fra Git-roten
+
+- Etter godkjent atferdsutkast bruker prosjektoppstart i `oc.py` Git-roten
+  som mount og sandboxidentitet. Valgt undermappe sendes til `start.py`
+  med `--workdir`. Direkte bruk av `start.py` er uendret.
+- Nestede repoer bruker innerste rot. Utenfor Git brukes valgt mappe.
+  Arvede `GIT_*`-overstyringer ignoreres, og Git-feil avbryter oppstart.
+- Koblede worktrees, submoduler og andre repoer med ekstern Git-metadata
+  avvises ved prosjektoppstart. Ingen ekstra mounts eller automatisk
+  sammenslåing med hovedrepoet innføres.
+- Eldre navn med samme rotmount gjenbrukes. Flere treff krever valg.
+  Eldre undermappemounts migreres ikke og kan fortsatt åpnes med `open NAVN`.
+- 77 tester består. De 16 nye testene dekker prosjektoppdagelse og delegering,
+  inkludert ekte lokale Git-repoer, koblet worktree, symlinker, mellomrom
+  i stier, ugyldig metadata og overstyrt Git-miljø.
+- Faktiske `--dry-run`-kontroller fra repo-roten og en undermappe valgte samme
+  eksisterende miljø med riktig startkatalog. Kontroll utenfor Git beholdt
+  valgt mappe. Ingen sandbox ble startet eller endret av kontrollene.
+- `git diff --check` består. Funksjonstest av faktisk TUI-oppstart fra
+  undermappen er ikke kjørt i denne delen av arbeidet.
+
+## Levende innhold i nye, utskiftbare sandboxer
+
+- Brukeren valgte skrivebeskyttede arbeidsmapper fremfor pins, profilpakker
+  og ettermontering. Gamle miljøer skal ikke migreres eller gjenskapes.
+- `content.py` planlegger mounts og kontrollerer relative stier,
+  remappbare symlinker og kjente agent- og skill-kollisjoner. Format 2 i
+  vertskatalogen binder eksisterende ruter til innholdskilder.
+- `oc.py` sender `--content` ved prosjektoppstart. `start.py` bruker sbx
+  sine posisjonelle ekstra arbeidsområder med `KILDE:MÅL:ro`.
+  Eksisterende eldre miljøer gjenåpnes uten innholds- eller credentialendring.
+- `content_runtime.py` registrerer skill- og instruksjonsstier, global
+  agentlenke og standardagent. Providers, Docker-generert `AGENTS.md` og
+  øvrige innstillinger bevares. Konflikter stopper oppsettet.
+- `install-launcher.py` viser en eksplisitt kopiplan for gjennomgått kode
+  utenfor prosjektmountene. Ingen installasjon eller shellendring er utført.
+- Den kopierte miljøinstruksjonen inneholder nå bare sandboxregler,
+  uten dupliserte personlige regler eller påstander om MCP-status.
+- 125 tester består. Offentlig dokumentasjon bruker syntetiske kilder.
+  Personlig katalog og nml-agentinnhold er fortsatt ikke endret eller aktivert.
+- En ny syntetisk testsandbox bekreftet faktisk mountmetadata, lesing,
+  avvist skriving med errno 30, bevart providerdel og oppdagelse av
+  `main`, `reviewer` og `synthetic-check` i OpenCode.
+- Tre modellsteg med GPT-6.1 Terra uten reasoning bekreftet første sesjons
+  standardagent, fellesinstruksjoner, faktisk skill-lasting etter
+  kildeoppdatering uten reinstallasjon, og agentbytte i en annen sesjon
+  med bevart modell og fellesinstruksjoner. Den andre sesjonen fikk ingen
+  modellrunde med standardagenten før byttet; dette delkravet er utestet.
+- Modell- og mounttestene brukte bare syntetisk innhold. Testsandboxen er
+  stoppet og beholdt. Ingen eksisterende miljøer ble endret.
+- Ekte test brukte `sbx create` og runtime direkte. Hele
+  `start.py --setup-only` med credential-registrering er enhetstestet,
+  men ikke kjørt ende til ende i denne delen.
+- Vertskatalog, nml-hovedagent, fellesinstruksjoner og launcherinstallasjon
+  krever fortsatt konkret godkjenning før skriving utenfor prosjektet.
+
+## Godkjent personlig aktivering
+
+- Brukeren godkjente konkret hovedagentutkast, kopi av fellesinstruksjoner,
+  katalogformat 2, installert launcher og endret shellfunksjon.
+- De godkjente kildefilene er opprettet i det private innholdsrepoet.
+  Hovedagenten låser ingen modell. Macens eksisterende grunninstruksjoner
+  og agentdefinisjoner er beholdt.
+- Vertskatalogen har fortsatt samme scopes og avhengigheter. Bare
+  formatversjonen og eksplisitte innholdskilder er endret.
+- De 20 eksplisitte launcher- og kitfilene er installert utenfor
+  prosjektmountene. Shellfunksjonen peker på denne kopien.
+- Ingen sandboxer er startet eller endret i aktiveringsdelen. Fysisk test
+  av det personlige oppsettet i en ny sandbox gjenstår; tidligere
+  funksjonstester brukte syntetisk innhold.
+- Ingen commit eller push er utført.
+- Lesende aktiveringskontroll bekreftet identiske installerte filer og
+  grunninstruksjoner, forventet ruting for personlige mapper, arbeidsrot,
+  skill-repoer, produktrepo og undermappe, uten kjente navnekollisjoner.
+  Shellsyntaks, diffkontroll og alle 125 tester bestod.

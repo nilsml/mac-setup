@@ -2,12 +2,15 @@ import json
 from pathlib import Path
 import runpy
 import subprocess
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-START = runpy.run_path(str(ROOT / "start.py"))
+with patch.object(sys, "path", [str(ROOT), *sys.path]):
+    START = runpy.run_path(str(ROOT / "start.py"))
 MODELS = runpy.run_path(str(ROOT / "models/install.py"))
 WORKSPACE = ROOT.parent
 
@@ -27,6 +30,16 @@ def sandbox_info():
 
 
 class StartTests(unittest.TestCase):
+    def test_new_sandbox_uses_dynamic_mcp_catalog(self):
+        create, _ = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
+        self.assertNotIn("--static-mcp", create)
+
+    def test_new_sandbox_removes_upstream_inline_allow_all_override(self):
+        create, attach = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
+        index = create.index("--env")
+        self.assertEqual(create[index + 1], "OPENCODE_CONFIG_CONTENT={}")
+        self.assertNotIn("OPENCODE_CONFIG_CONTENT={}", attach)
+
     def test_names_are_stable_and_distinguish_same_basename(self):
         name = START["sandbox_name"]
         self.assertEqual(name(Path("/a/project")), name(Path("/a/project")))
@@ -48,6 +61,13 @@ class StartTests(unittest.TestCase):
         ):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate({**sandbox_info(), **change}, WORKSPACE)
+
+    def test_malformed_mount_metadata_is_rejected_cleanly(self):
+        for mounts in (None, "invalid", [None], ["invalid"],
+                       [{**sandbox_info()["host_mounts"][0], "container_target": {}}],
+                       [{**sandbox_info()["host_mounts"][0], "read_only": 1}]):
+            with self.subTest(mounts=mounts), self.assertRaises(ValueError):
+                START["validate_existing"]({**sandbox_info(), "host_mounts": mounts}, WORKSPACE)
 
     def test_no_secret_registration_when_all_present(self):
         self.assertEqual(START["missing_secrets"](sandbox_info()), [])
@@ -100,6 +120,172 @@ class StartTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 START["main"]([str(WORKSPACE)])
         self.assertEqual(run.call_count, 1)
+
+
+class ContentStartTests(unittest.TestCase):
+    def setUp(self):
+        runtime = ROOT / "tests/.runtime"
+        runtime.mkdir(exist_ok=True)
+        temporary = tempfile.TemporaryDirectory(dir=runtime)
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name).resolve()
+        self.workspace = self.base / "project"
+        self.source = self.base / "content"
+        for path in (self.workspace, self.source / "skills/probe", self.source / "agents"):
+            path.mkdir(parents=True)
+        (self.source / "skills/probe/SKILL.md").write_text("---\ndescription: Fixture\n---\nProbe\n")
+        (self.source / "agents/main.md").write_text("---\nmode: primary\n---\nFixture\n")
+        (self.source / "rules.md").write_text("Fixture rules\n")
+        self.spec = {
+            "source": str(self.source), "skills": ["skills"],
+            "agents": "agents", "instructions": ["rules.md"], "defaultAgent": "main",
+        }
+        self.catalog = self.base / "catalog.json"
+        self.catalog.write_text(json.dumps({
+            "schemaVersion": 2, "layers": [{
+                "id": "personal", "scope": {"type": "always"}, "requires": [], "content": self.spec,
+            }],
+        }))
+        self.plan = START["selected_content"](self.workspace, self.workspace, self.catalog)
+        self.args = [str(self.workspace), "--name", "content-test", "--content", "--catalog", str(self.catalog)]
+        self.info = {
+            **sandbox_info(), "workspace": str(self.workspace),
+            "host_mounts": [{
+                "host_path": str(self.workspace), "container_target": str(self.workspace), "read_only": False,
+            }, {
+                "host_path": str(self.source), "container_target": "/opt/opencode-content/personal", "read_only": True,
+            }],
+        }
+
+    def test_new_content_dry_run_lists_mount_and_does_not_execute(self):
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "")) as run:
+            START["main"]([*self.args, "--dry-run"])
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0], ["sbx", "ls", "-q"])
+
+    def test_create_uses_readonly_positional_mount_and_configures_before_attach(self):
+        responses = [
+            subprocess.CompletedProcess([], 0, ""),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0, json.dumps(self.info)),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run, \
+                patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="ja"):
+            START["main"](self.args)
+        calls = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(calls[1][0:5], [
+            "sbx", "create", "opencode", str(self.workspace),
+            f"{self.source}:/opt/opencode-content/personal:ro",
+        ])
+        self.assertEqual(calls[3][:7], ["sbx", "exec", "-u", "agent", "content-test", "python3", "-c"])
+        self.assertEqual(json.loads(run.call_args_list[3].kwargs["input"]), START["content_payload"](self.plan))
+        self.assertEqual(calls[4], ["sbx", "run", "--name", "content-test", "--workdir", str(self.workspace)])
+
+    def test_new_environment_receives_private_logseq_connection_over_stdin_only(self):
+        remote = {"type": "remote", "url": "http://host.docker.internal:12320/mcp/",
+                  "oauth": False, "headers": {"Authorization": "Bearer synthetic-private-token"}}
+        responses = [
+            subprocess.CompletedProcess([], 0, ""),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0, json.dumps(self.info)),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run, \
+                patch.object(START["logseq"], "connection", return_value=remote), \
+                patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="ja"):
+            START["main"](self.args)
+        call = run.call_args_list[4]
+        self.assertEqual(call.args[0][:6], ["sbx", "exec", "-i", "-u", "agent", "content-test"])
+        self.assertNotIn("synthetic-private-token", " ".join(call.args[0]))
+        self.assertEqual(json.loads(call.kwargs["input"]), remote)
+        self.assertEqual(run.call_args.args[0][:2], ["sbx", "run"])
+
+    def test_existing_content_is_checked_without_reconfiguring(self):
+        responses = [
+            subprocess.CompletedProcess([], 0, "content-test\n"),
+            subprocess.CompletedProcess([], 0, json.dumps(self.info)),
+            subprocess.CompletedProcess([], 0),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run, \
+                patch.object(START["logseq"], "connection") as connection:
+            START["main"]([*self.args, "--setup-only"])
+        connection.assert_not_called()
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_args.args[0][-1], "--check")
+
+    def test_legacy_environment_ignores_content_catalog_and_is_not_reconfigured(self):
+        info = {
+            **self.info, "host_mounts": self.info["host_mounts"][:1],
+            "kits": ["/old/launcher/personal", "/old/launcher/models"], "secrets": [],
+        }
+        self.catalog.unlink()
+        responses = [
+            subprocess.CompletedProcess([], 0, "content-test\n"),
+            subprocess.CompletedProcess([], 0, json.dumps(info)),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run:
+            START["main"]([*self.args, "--setup-only"])
+        self.assertEqual(run.call_count, 2)
+
+    def test_mount_check_rejects_readwrite_extra_missing_and_duplicate_mounts(self):
+        for mounts in (
+            self.info["host_mounts"][:1],
+            [*self.info["host_mounts"], self.info["host_mounts"][1]],
+            [self.info["host_mounts"][0], {**self.info["host_mounts"][1], "read_only": False}],
+            [self.info["host_mounts"][0], {**self.info["host_mounts"][1], "container_target": "/different"}],
+        ):
+            with self.subTest(mounts=mounts), self.assertRaises(ValueError):
+                START["validate_existing"]({**self.info, "host_mounts": mounts}, self.workspace, self.plan)
+
+    def test_unknown_extra_mount_does_not_pass_validation(self):
+        with self.assertRaises(ValueError):
+            START["validate_existing"](self.info, self.workspace)
+
+    def test_old_catalog_fails_before_creation(self):
+        self.catalog.write_text(json.dumps({
+            "schemaVersion": 1, "layers": [{
+                "id": "personal", "scope": {"type": "always"}, "requires": [],
+            }],
+        }))
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "")) as run:
+            with self.assertRaisesRegex(ValueError, "katalogformat 2"):
+                START["main"](self.args)
+        self.assertEqual(run.call_count, 1)
+
+    def test_catalog_inside_workspace_is_rejected(self):
+        catalog = self.workspace / "catalog.json"
+        catalog.write_text(self.catalog.read_text())
+        with self.assertRaisesRegex(ValueError, "utenfor"):
+            START["selected_content"](self.workspace, self.workspace, catalog)
+
+    def test_launcher_inside_workspace_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "utenfor"):
+            START["selected_content"](ROOT.parent, ROOT, self.catalog)
+
+    def test_declining_creation_does_not_create_or_configure(self):
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "")) as run, \
+                patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="nei"):
+            with self.assertRaisesRegex(ValueError, "Avbrutt"):
+                START["main"](self.args)
+        self.assertEqual(run.call_count, 1)
+
+    def test_content_failure_does_not_delete_created_environment(self):
+        responses = [
+            subprocess.CompletedProcess([], 0, ""),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0, json.dumps(self.info)),
+            subprocess.CalledProcessError(1, ["sbx", "exec"]),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run, \
+                patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="ja"):
+            with self.assertRaisesRegex(ValueError, "Miljøet er beholdt"):
+                START["main"](self.args)
+        self.assertEqual(run.call_count, 4)
+        self.assertTrue(all("rm" not in call.args[0] for call in run.call_args_list))
 
 
 class ModelsTests(unittest.TestCase):

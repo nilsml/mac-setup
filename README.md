@@ -54,7 +54,7 @@ brew bundle cleanup --file=Brewfile   # lists what is installed but not in Brewf
 
 ## OpenCode in Docker Sandboxes
 
-See [sbx/README.md](sbx/README.md) for the reusable OpenCode sandbox setup, credentials, session lifecycle, and project launcher. Each project gets its own persistent sandbox:
+See [sbx/README.md](sbx/README.md) for the reusable OpenCode sandbox setup, credentials, session lifecycle, and project launcher. Each project gets its own replaceable sandbox:
 
 ```sh
 python3 ~/Dev/mac-setup/sbx/start.py .
@@ -65,10 +65,27 @@ The launcher creates or reopens the environment and registers missing provider c
 For a menu of existing OpenCode environments, including opening and confirmed stopping:
 
 ```sh
-python3 ~/Dev/mac-setup/sbx/oc.py
+python3 ~/.local/share/opencode-sbx/launcher/oc.py
 ```
 
 It also accepts `.`, `list`, `open NAME`, `shell NAME`, and `stop NAME`. No shell shortcut is installed automatically.
+
+For project startup, `oc.py` mounts the Git working tree root and preserves the
+selected subdirectory as the starting directory. Nested repositories keep their
+own identity. Outside Git, it uses the selected directory. Linked worktrees and
+other repositories with external Git metadata are currently rejected without
+adding mounts. Existing environments remain accessible via `open NAME`.
+Direct `start.py` invocation retains explicit directory selection.
+
+`capabilities [PATH|NAME]` previews the expected content layers using a private
+host catalog. This currently selects layers only; it does not install or verify
+skills, instructions, MCP servers, or agents.
+
+New environments launched through `oc.py` can use live, read-only content
+mounts from a format-2 host catalog. Existing environments are not retrofitted.
+The launcher and host catalog must be outside the writable project mount.
+See [the content mount contract](sbx/CONTENT-MOUNTS.md) for activation,
+agent registration, collision checks, and limitations.
 
 ## Before wiping the old Mac
 
