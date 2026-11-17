@@ -4,23 +4,176 @@ Gjenbrukbart Linux-miljø for OpenCode, med **én utskiftbar sandbox per prosjek
 
 Oppskriftene hører hjemme i `mac-setup`. Innlogging, API-nøkler, databaser og samtaler skal ikke i Git eller images.
 
-## Status
+## Leseguide
 
-Verifisert 16. november 2026 med `sbx` 0.53.0 og OpenCode 2.3.0:
+- Denne siden forklarer arkitekturen, daglig bruk og feilsøking.
+- [CONTENT-MOUNTS.md](CONTENT-MOUNTS.md) beskriver katalogformat, mounts og kollisjonskontroll.
+- [MCP.md](MCP.md) beskriver transport, autentisering og agentrettigheter.
+- [HISTORY.md](HISTORY.md) inneholder historiske testresultater og tidligere løsninger.
 
-- Debian 13 ARM64, zsh, oh-my-zsh, Starship, autoforslag og syntaksutheving.
-- Git, GitHub CLI, eza, Neovim, Node/npm og Python med venv.
-- Nord-tema, Powerline-plugin og et kort, Linux-tilpasset instruksjonsutvalg.
-- Minimale modellkall til GPT-6.1 Sol, Claude Opus 5.5 og Bergets GLM-5.3 Flash svarte `OK` i `opencode-work`.
-- Seks Berget-modeller er konfigurert. Bare GLM er funksjonstestet.
-- Ny sandbox er opprettet gjennom oppstartsscriptet med pseudo-terminal, begge mixinene og registrering av manglende modellsecrets.
-- Personlig og syntetisk prosjektlokal skill er oppdaget og brukt av GPT-6.1 Sol. Navnekollisjon stoppet installasjonen uten filendringer.
-- Skills, samtalemetadata og alle meldinger var bevart etter bekreftet stopp/start.
-- `oc.py` er testet med enhetstester, ekte lesende oppslag, prosjektgjenkjenning, åpning/avslutning av TUI i pseudo-terminal og bekreftet stopp av testsandboxen.
+Figurene er Mermaid-diagrammer som GitHub viser direkte.
 
-Ny innholdslevering bruker levende, skrivebeskyttede mounts, uten pins eller kopiering av skills og agenter. Se [CONTENT-MOUNTS.md](CONTENT-MOUNTS.md). Vertskatalog, personlig hovedagent og grunninstruksjoner må godkjennes og aktiveres separat. Den eldre installasjonspiloten beholdes. MCP og funksjonstest av spesialagenter kommer etter grunnleveransen.
+## Oversikt: hva kjører hvor?
 
-MCP bruker en felles vertskatalog. Nye miljøer fra den oppdaterte launcheren får dynamisk oppdagelse og lasting av registrerte tjenester ved behov. Eksisterende miljøer beholdes uendret, uten migrering eller ettermontering. Browse er registrert globalt; relay-/nettlesertilkobling er ikke bekreftet. Separat Logseq-forbindelse med innebygde V2-agentrettigheter og en global Rovo-registreringsplan er implementert. Egen tilgangsplugin er fjernet. Agentgrensen er testet i ny sandbox mot en syntetisk Logseq-tjeneste. Full ekstern aktivering og ende-til-ende-test gjenstår. Installert launcher er ikke automatisk oppdatert. Se [MCP.md](MCP.md).
+```mermaid
+flowchart LR
+  subgraph mac["Mac"]
+    OC["oc: installert launcher"]
+    Project["Prosjektfiler"]
+    Content["Skills, agenter og instruksjoner"]
+    Catalog["Privat innholdskatalog"]
+    Gateway["sbx MCP-gateway"]
+    Browse["Browse MCP og relay"]
+    Chrome["Chrome med Browse-utvidelse"]
+    HostLogseq["Eksisterende mcp-logseq med HTTP"]
+    Graph["Logseq-appen og grafen"]
+  end
+  subgraph sandbox["Linux-sandbox per prosjekt"]
+    OpenCode["OpenCode og agenter"]
+    Workspace["Skrivbar prosjektmount"]
+    Mounted["Skrivebeskyttede innholdsmounts"]
+  end
+  Rovo["Atlassian Rovo"]
+  Catalog --> OC
+  OC -->|"opprett eller åpne via sbx"| OpenCode
+  Project -->|"les og skriv"| Workspace
+  Content -->|"bare lesing"| Mounted
+  Workspace --- OpenCode
+  Mounted --> OpenCode
+  OpenCode -->|"felles MCP-forbindelse"| Gateway
+  Gateway --> Browse
+  Browse --> Chrome
+  Gateway --> Rovo
+  OpenCode -->|"separat MCP-forbindelse"| HostLogseq
+  HostLogseq --> Graph
+```
+
+### Hva er standard, og hva er egen kode?
+
+| Del | Ansvar |
+| --- | --- |
+| Docker Sandboxes (`sbx`) | Sandboxruntime, kit, mounts, secrets/proxy og MCP-gateway. Dette er eksisterende Docker-funksjonalitet. |
+| OpenCode | Sesjoner, agenter, skills, Code Mode og verktøyrettigheter. |
+| Browse, Rovo og `mcp-logseq` | Eksisterende MCP-tjenester. Browse styrer nettleseren på Macen, Rovo gir Atlassian-tilgang, og `mcp-logseq` snakker med Logseq. |
+| Koden i dette repoet | Launcher, katalogbasert innholdsvalg, kit og små adaptere som kobler delene sammen. |
+| Privat vertskonfigurasjon | Valg av innholdskilder, innlogginger og tokenfiler. Ligger utenfor det offentlige repoet. |
+
+`logseq.py` starter den installerte `mcp-logseq` med HTTP-transport og eget
+MCP-token. Det opprettes ingen ny Logseq-app eller kopi av grafen.
+På den oppsatte Macen starter en bruker-LaunchAgent denne forbindelsen ved
+innlogging. Browse håndterer relayen selv ved bruk; ingen egen Browse-LaunchAgent
+skal installeres.
+
+## Fra `oc .` til arbeidsklar sandbox
+
+```mermaid
+flowchart TD
+  Start["oc ."] --> Root["Finn Git-roten og behold valgt startkatalog"]
+  Root --> Exists{"Finnes prosjektets sandbox?"}
+  Exists -->|"Ja"| Reopen["Kontroller relevant oppsett og åpne eksisterende miljø"]
+  Exists -->|"Nei"| Layers["Velg innholdslag fra privat katalog"]
+  Layers --> Validate["Kontroller kilder, mounts og navnekollisjoner"]
+  Validate --> Confirm["Vis plan og be om bekreftelse"]
+  Confirm --> Create["sbx oppretter miljø med personal- og models-kit"]
+  Create --> Setup["Registrer innhold, modelltilgang og valgfri Logseq-forbindelse"]
+  Setup --> Ready["Åpne OpenCode med konfigurert standardagent"]
+  Reopen --> Ready
+```
+
+Nye miljøer får innholdet automatisk når vertskatalogen er satt opp.
+Personlig innhold kan være et alltid aktivt lag, jobbinnhold kan velges etter
+mappe, og produktinnhold kan avgrenses til en bestemt repository-identitet.
+Bare ett lag leverer agentmappen. De konkrete reglene ligger i den private
+katalogen, ikke i launcherkoden.
+
+Eksisterende miljøer migreres ikke. Ved ufullstendig førstegangsoppsett beholdes
+miljøet; rett årsaken og bruk et nytt navn. Ingen automatisk reparasjon eller sletting.
+
+## Hvorfor vises bare `mcp-gateway` og `logseq`?
+
+Dette er de to forbindelsene OpenCode kjenner. Browse og Rovo ligger bak
+gatewayen og lastes ved behov.
+
+```mermaid
+flowchart LR
+  Agent["OpenCode-agent"] --> Gateway["mcp-gateway"]
+  Gateway --> Find["mcp-find: finn tjenesten"]
+  Find --> Add["mcp-add: last tjenesten"]
+  Add --> Tools["Browse- eller Rovo-verktøy"]
+  Agent --> Policy{"Logseq-rettighet"}
+  Policy -->|"Logseq-agent: tillatte verktøy"| Logseq["Separat logseq-forbindelse"]
+  Policy -->|"Main og testede innebygde agenter"| Deny["Avslag"]
+```
+
+- **Browse og Rovo:** registreres én gang på Macen. Agenten bruker gatewayens
+  oppdagelsesverktøy og henter eksakt kallsti med OpenCodes `search`.
+- **Logseq:** ligger separat for å kunne avgrense entydige `logseq_*`-verktøynavn
+  med OpenCodes agentrettigheter. Gatewayens generelle videresendingsverktøy
+  ga ikke denne avgrensningen alene.
+- **Agentbytte:** kobler ikke Logseq fra. Forbindelsen består, mens agentens
+  rettigheter avgjør om verktøyene kan brukes.
+- **Skriving:** kjente Logseq-skriveoperasjoner bruker `ask`. «Allow always»
+  kan lagre en godkjenning, så ny tillatelsesdialog ved hvert skriv er ikke garantert.
+- **Sikkerhetsgrense:** dette er modellens verktøyrettigheter. Agenter med
+  vilkårlig shell-/fil-/nettverkstilgang deler sandboxbruker og kan omgå dem.
+  Nye agentdefinisjoner og nye upstream-verktøy krever gjennomgang.
+
+### Browse og to forskjellige JavaScript-miljøer
+
+OpenCodes ytre `execute` har verktøytilgang gjennom `tools`. Det har ingen
+`page`, `browser` eller `snapshot`. I Browse-versjonen brukt under testene
+16. november 2026 hadde Browse dessuten sitt eget `execute`, som tok
+Playwright-kode som en streng:
+
+```javascript
+// Inne i OpenCodes execute, etter oppslag av verktøyets eksakte kallsti:
+return await tools["mcp-gateway"].execute({
+  code: 'await page.goto("https://www.nrk.no/"); return await page.title();'
+});
+```
+
+Dette eksemplet er **versjonsavhengig**. Nyere Browse-verktøykataloger tilbyr
+blant annet `navigate` og `snapshot` med en eksplisitt tab-ID i stedet.
+Bruk alltid katalogen som faktisk er lastet, og følg dens signaturer.
+Ekstra parametere som `session` gjør ikke OpenCodes ytre `execute` til Browse.
+Ved `Unknown identifier 'page'` må det faktiske verktøykallet kontrolleres før
+en versjonsoppdatering foreslås.
+
+## Hva ligger hvor, og hva overlever?
+
+| Innhold | Plassering | Stopp/start | Sletting av sandbox |
+| --- | --- | --- | --- |
+| Prosjektfiler | Prosjektmappen på Macen, skrivbart montert | Beholdes | Beholdes |
+| Skills, agentfiler og fellesinstruksjoner | Egne innholdskilder på Macen, lesbart montert | Beholdes | Beholdes på Macen |
+| Installerte launcherfiler | `~/.local/share/opencode-sbx/launcher-mcp-v2/` | Uavhengig av sandboxen | Uendret |
+| Innholdsvalg | `~/.config/opencode-sbx/catalog.json` | Uavhengig av sandboxen | Uendret |
+| Logseq-profil og MCP-token | Privat Mac-konfigurasjon og state | Uavhengig av sandboxen | Uendret |
+| OpenCode-samtaler og filer bare inne i sandboxen | Sandboxens egne data | Testet bevart | Må sikres separat; ingen garanti om gjenoppretting |
+| Kopierte kitfiler, som `preferences.md` | Sandboxens hjemmekatalog | Beholdes | Ny sandbox får filene fra valgt kit |
+
+Levende innholdsmounts gjør vertsendringer synlige i sandboxen. OpenCode kan
+trenge `/reload` eller en ny sesjon før endringene brukes. Allerede innlastet
+samtaleinnhold erstattes ikke automatisk.
+Kopierte kitfiler oppdateres verken av en ny agentsesjon eller av endringer i repoet.
+
+## Verifisert og gjenstående
+
+Sist gjennomgått 17. november 2026. Funksjonstestene nedenfor ble kjørt
+16. november med `sbx` 0.53.0 og OpenCode 2.3.0:
+
+- 154 enhetstester bestod ved siste kodeendring.
+- Ny sandbox opprettet gjennom installert launcher med innholdslag,
+  modelltilgang, standardagent og separat Logseq-forbindelse.
+- Logseq-agentens lesing og Mains avslag testet; syntetiske skrivekall
+  stoppet på godkjenning uten at de nådde testtjenesten.
+- Browse åpnet NRK gjennom gateway og faktiske modellkall. To naturlige
+  forespørsler med Sonnet 5 bestod etter instruksjon om riktig kallform.
+- Rovo-innlogging, dynamisk lasting og verktøykatalog bekreftet.
+  Ingen funksjonstest mot Jira-/Confluence-innhold er gjort.
+- Innholdsoppsett, rettighetskontroller og samtaledata er testet over stopp/start.
+
+Dette er konkrete tester av det oppsatte miljøet, ingen garanti for alle
+modellvalg, fremtidige MCP-versjoner eller gjenoppretting etter sletting.
 
 ## Første oppsett på en Mac
 
@@ -42,19 +195,19 @@ ChatGPT-innloggingen skal være registrert i `sbx` **før sandboxen opprettes**.
 `oc.py` gir én inngang for prosjektoppstart og eksisterende miljøer:
 
 ```sh
-python3 ~/.local/share/opencode-sbx/launcher/oc.py           # Meny med navn, status og prosjekt
-python3 ~/.local/share/opencode-sbx/launcher/oc.py .         # Opprett eller gjenåpne prosjektmiljø
-python3 ~/.local/share/opencode-sbx/launcher/oc.py list
-python3 ~/.local/share/opencode-sbx/launcher/oc.py open NAVN
-python3 ~/.local/share/opencode-sbx/launcher/oc.py shell NAVN
-python3 ~/.local/share/opencode-sbx/launcher/oc.py stop NAVN
-python3 ~/.local/share/opencode-sbx/launcher/oc.py capabilities .
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py           # Meny med navn, status og prosjekt
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py .         # Opprett eller gjenåpne prosjektmiljø
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py list
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py open NAVN
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py shell NAVN
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py stop NAVN
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py capabilities .
 ```
 
 Kortkommandoen `oc` installeres ikke av scriptet. Den er lagt inn separat i brukerens dotfiles etter godkjenning. For gjeldende zsh-økt kan du definere:
 
 ```sh
-oc() { python3 "$HOME/.local/share/opencode-sbx/launcher/oc.py" "$@"; }
+oc() { python3 "$HOME/.local/share/opencode-sbx/launcher-mcp-v2/oc.py" "$@"; }
 ```
 
 Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop NAVN` tilstrekkelig. Permanent shelloppsett gjøres separat i dotfiles etter godkjenning.
@@ -71,7 +224,8 @@ Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop
 - Stopp av et kjørende miljø krever bekreftelse og avbryter aktive prosesser. Et allerede stoppet miljø blir stående urørt.
 - `open NAVN --dry-run`, `shell NAVN --dry-run` og `stop NAVN --dry-run` viser bare planen. `oc . --dry-run` bruker oppstartsscriptets lesende kontroll.
 - `--all-tabs` gjelder åpning/prosjektoppstart. `--setup-only` og `--name` gjelder prosjektoppstart. Bruk `oc project STI` hvis mappenavnet er et reservert kommandonavn.
-- Det finnes ingen slettekommando, automatisk oppgradering eller bakgrunnsmodus.
+- Launcheren har ingen slettekommando, automatisk oppgradering eller egen
+  bakgrunnsmodus. Dette er separat fra vertstjenester som Logseq-forbindelsen.
 
 ### Nye miljøer med innholdsmounts
 
@@ -89,7 +243,7 @@ Før aktivering kreves en gjennomgått launcher utenfor prosjektmountene:
 
 ```sh
 # Viser bare kopiplanen. Skriver ingenting.
-python3 sbx/install-launcher.py
+python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-mcp-v2
 ```
 
 Installasjon med `--apply`, endring av `oc`-funksjonen og endring av privat
@@ -166,7 +320,9 @@ python3 ~/Dev/mac-setup/sbx/start.py . --setup-only
 python3 ~/Dev/mac-setup/sbx/start.py . --name opencode-mittprosjekt
 ```
 
-Scriptet stopper ved feil. Hvis opprettelsen lyktes før et senere steg feilet, beholdes sandboxen. Kjør samme kommando igjen for å fortsette. Eksisterende registrerte secrets overskrives ikke automatisk.
+Scriptet stopper ved feil. Hvis opprettelsen lyktes før et senere steg feilet,
+beholdes sandboxen. Rett årsaken og bruk et nytt navn for en ny sandbox.
+Eksisterende registrerte secrets overskrives ikke automatisk.
 
 ## Sesjoner og tabs
 
@@ -236,6 +392,10 @@ sbx/
 ├── content.py       # Lesende mountplan og kollisjonskontroll
 ├── content_runtime.py # Registrering inne i en ny sandbox
 ├── install-launcher.py # Eksplisitt kopiplan for betrodd launcher
+├── mcp.py           # Registrering av Browse og Rovo i felles sbx-katalog
+├── mcp_host.py      # Start eksisterende Browse med gjennomgått vertsmiljø
+├── logseq.py        # Privat vertskonfigurasjon og start av mcp-logseq HTTP
+├── mcp_runtime.py   # Separat Logseq-forbindelse og native agentregler
 ├── personal/       # Shellverktøy, Nord, Powerline og instruksjoner
 ├── models/         # Berget-oppsett og credential-deklarasjon
 ├── scripts/        # Miljøkontroll og engangsoverføring av API-nøkler
@@ -245,7 +405,16 @@ sbx/
 
 Mixinene bygges og caches av `sbx`. De kan gjenbrukes mellom prosjekter, mens hver sandbox beholder egne data og avgrensninger. Kopierte personlige standardinnstillinger oppdateres manuelt fra gjennomgåtte kilder; Macens konfigurasjon er ikke montert.
 
-Endringer i repoet oppdaterer ikke eksisterende sandboxer. Planlegg en ny sandbox med nytt navn ved kit-endringer, og behold den gamle til data og arbeidsflyt er kontrollert. `sbx kit add` støtter foreløpig ikke vårt credential-deklarerende modelltillegg.
+Endringer i repoet oppdaterer ikke den installerte launcheren automatisk.
+`install-launcher.py` nekter å skrive over en ikke-tom målmappe. En oppdatering
+krever derfor en gjennomgått installasjon i en ny mappe og et eksplisitt bytte
+av `oc`. Oppdater også eventuelle vertstjenester og MCP-registreringer som peker
+til den gamle installasjonen før denne ryddes bort.
+
+Endrede kitfiler krever en ny sandbox med nytt navn. Behold den gamle til data
+og arbeidsflyt er kontrollert. Dette gjelder kopierte filer; levende
+innholdsmounts følger i stedet vertskilden. `sbx kit add` støtter foreløpig ikke
+vårt credential-deklarerende modelltillegg.
 
 Standard-workloaden følger `sbx` sin OpenCode-shortcut. `personal.dockerfile` har et låst baseimage, oh-my-zsh har låst commit og Starship har låst versjon. Hele sammensetningen er ikke fullt versjonslåst: Debian-pakker følger pakkebrønnen, og fremtidige opprettelser kan få en nyere standard-workload. Verifiser kompatibilitet ved oppdatering. Starship-nedlastingen mangler separat checksumverifisering.
 
@@ -262,25 +431,29 @@ Miljøkontroll inne i en ny sandbox fra en Mac-terminal:
 sbx exec -i NAVN sh < ~/Dev/mac-setup/sbx/scripts/check-environment.sh
 ```
 
-## Neste leveranser
+## Feilsøking
 
-**MÅ**
+| Symptom | Første kontroll |
+| --- | --- |
+| Bare `mcp-gateway` og `logseq` er synlige | Forventet. Finn og last Browse/Rovo gjennom gatewayen. |
+| Browse mangler `page` eller `snapshot` | Kontroller faktisk kallsti og hvilken JavaScript-runtime koden kjøres i. Se Browse-avsnittet over. |
+| Browse har ingen tilkoblet nettleser | Kjør `browse status --json` på Macen og følg neste steg. Kontroller at Chrome-utvidelsen er tilkoblet. |
+| Rovo trenger innlogging | Kjør `sbx mcp auth status rovo`, og ved behov `sbx mcp auth rovo` selv i terminalen. |
+| Logseq er utilgjengelig | Logseq-appen med HTTP API må kjøre. Kontroller også MCP-vertstjenesten og privat profil/token. |
+| Ny instruksjon mangler | Avklar om filen er levende montert eller kopiert fra kitet. Kopierte filer krever en ny sandbox. |
+| Endring i dette repoet har ingen effekt | Kontroller hvilken installert launcher `oc` peker til. Repo og installasjon er separate kopier. |
 
-- Godkjenne og aktivere vertskatalog, hovedagent, felles instruksjoner og betrodd launcher.
-- Verifisere personlig oppsett og alle innholdslag i nye sandboxer.
-- Gjennomgå skill-avhengigheter og koble til nødvendige MCP-tjenester.
-- Kontrollere den daglige TUI-flyten visuelt i vanlig terminal.
+Oppdatering av programvare er ikke første tiltak uten at feilen peker på
+versjonskompatibilitet. Bekreft separat at tjenesten er registrert, autorisert,
+tilkoblet, tilgjengelig for agenten og faktisk brukt.
 
-**BØR**
+## Kjente avgrensninger
 
-- Avklare hva som skal bevares utenfor de utskiftbare sandboxene.
-- Gjennomgå oppdateringsrutine og checksumverifisering av nedlastinger.
-
-**SENERE**
-
-- MCP, først aktuelle tjenester som Browse, med avgrenset transport og autentisering til Macen.
-- Funksjonstest av spesialagenter etter at skill- og MCP-avhengighetene er på plass.
-- Ollama, som krever en separat vurdering av vertstilgang.
+- Rovo er ikke funksjonstestet mot Jira-/Confluence-innhold i denne leveransen.
+- Sterkere isolasjon mellom agenter er ikke implementert.
+- Backup og gjenoppretting etter sletting må avklares separat.
+- Worktree-støtte og checksumverifisering av Starship-nedlastingen gjenstår.
+- Nye MCP-versjoner og modeller trenger egne tester før kompatibilitet loves.
 
 ## Kilder
 

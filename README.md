@@ -54,10 +54,12 @@ brew bundle cleanup --file=Brewfile   # lists what is installed but not in Brewf
 
 ## OpenCode in Docker Sandboxes
 
-See [sbx/README.md](sbx/README.md) for the reusable OpenCode sandbox setup, credentials, session lifecycle, and project launcher. Each project gets its own replaceable sandbox:
+See **[sbx/README.md](sbx/README.md)** for the complete sandbox guide, including
+architecture diagrams, startup flow, content layers, MCP routing, persistence,
+credentials and troubleshooting. Each project gets its own replaceable sandbox:
 
 ```sh
-python3 ~/Dev/mac-setup/sbx/start.py .
+oc .
 ```
 
 The launcher creates or reopens the environment and registers missing provider credentials without putting API keys in the repository. Initial setup requires an interactive terminal and provider sign-in on the host.
@@ -65,10 +67,12 @@ The launcher creates or reopens the environment and registers missing provider c
 For a menu of existing OpenCode environments, including opening and confirmed stopping:
 
 ```sh
-python3 ~/.local/share/opencode-sbx/launcher/oc.py
+python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py
 ```
 
-It also accepts `.`, `list`, `open NAME`, `shell NAME`, and `stop NAME`. No shell shortcut is installed automatically.
+It also accepts `.`, `list`, `open NAME`, `shell NAME`, and `stop NAME`. The `oc`
+shell shortcut is configured separately in dotfiles; the bootstrap does not
+install it automatically.
 
 For project startup, `oc.py` mounts the Git working tree root and preserves the
 selected subdirectory as the starting directory. Nested repositories keep their
@@ -86,6 +90,10 @@ mounts from a format-2 host catalog. Existing environments are not retrofitted.
 The launcher and host catalog must be outside the writable project mount.
 See [the content mount contract](sbx/CONTENT-MOUNTS.md) for activation,
 agent registration, collision checks, and limitations.
+
+Browse and Rovo are discovered through sbx's existing `mcp-gateway`. Logseq uses
+a separate connection for native per-agent tool permissions. See
+[the MCP guide](sbx/MCP.md) for transports and security limitations.
 
 ## Before wiping the old Mac
 

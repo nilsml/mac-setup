@@ -1,8 +1,10 @@
-# MCP activation
+# MCP connections and agent permissions
 
-Implemented: shared dynamic catalog, Browse registration, Rovo registration
-plan, and a separate host-local Logseq connection using native V2 permissions.
-This is not yet a fully activated deployment. See verification and activation below.
+Implemented and activated on the configured Mac: a shared dynamic catalog for
+Browse and Rovo, and a separate host-local Logseq connection using native V2
+permissions. This file explains the mechanisms and their limitations.
+For architecture diagrams, daily use and troubleshooting, start with
+[README.md](README.md).
 
 ## Shared catalog is the default
 
@@ -40,15 +42,14 @@ only `OPENCODE_BROWSER_RUNTIME` and a small host environment allowlist.
 It refuses arbitrary configured commands, extra environment settings, disabled
 Browse, and competing JSONC configuration. It does not print configuration.
 
-Registration has been applied globally using the installed Browse runner under
-`~/.local/share/opencode-sbx/launcher-mcp/`. That installation has the earlier
-22-file manifest; later Logseq and native permission changes are not installed there.
-The original `oc` function still uses the original launcher.
+Browse is registered globally using the installed runner under
+`~/.local/share/opencode-sbx/launcher-mcp-v2/`. The `oc` shell function uses that
+same installation. The intermediate `launcher-mcp` copy has been removed.
 
 An existing `browse` registration is never replaced automatically.
 Registering a server is not proof that the browser extension is reachable.
 
-Future approved services, including Rovo, belong in this shared host catalog.
+Other approved public services, including Rovo, belong in this shared host catalog.
 Use sbx's existing registration and discovery mechanisms instead of building
 a second per-project service registry.
 
@@ -114,9 +115,12 @@ sbx 0.53.0's resource-identity check because the OAuth metadata names the URL
 without its query. Supplying `--resource` did not bypass that check; the canonical
 URL registered successfully. `--apply` executes the registration only. Authentication
 is intentionally separate: the user runs `sbx mcp auth rovo` in their terminal.
-Until verified, report it as awaiting authentication, not connected.
+On the configured Mac, authorization, dynamic loading and tool catalog access
+have been verified. This does not prove a particular Jira or Confluence operation
+works; no company content was read or written for the connection test.
+Granted OAuth permissions include writes, so the connection is not read-only.
 
-## Remaining activation draft
+## Installed configuration and first-time setup
 
 Current activation state: `oc` now points to `launcher-mcp-v2`, Browse is
 registered against that same installation, and the unused intermediate
@@ -124,7 +128,7 @@ registered against that same installation, and the unused intermediate
 because an existing sandbox still references its kits. Browse relay and its
 extension are connected; dynamic discovery, loading and the Browse `status`
 tool succeeded from the v2 test sandbox without reading private tabs.
-Rovo is registered at the canonical URL and awaits user authentication.
+Rovo is registered at the canonical URL and is authorized.
 The installed helper has now been synchronized with those source changes.
 Logseq now runs under the approved `com.opencode-sbx.logseq` user LaunchAgent.
 
@@ -136,11 +140,12 @@ session was deleted without reading private tabs. Our Browse LaunchAgent is
 unloaded and its plist removed after approval. Let Browse manage its
 own relay instead of using `browse serve` as a permanent service.
 
-These external changes require approval of paths and content before execution:
+The following describes the setup already performed on the configured Mac.
+On a new Mac these are explicit host changes, not automatic bootstrap steps:
 
 1. Install the current 24-file `install-launcher.py:FILES` manifest into a new,
    empty `~/.local/share/opencode-sbx/launcher-mcp-v2/`. Contents are exact copies
-   of those repository files. Keep both existing installations.
+   of those repository files. Existing nonempty installations are not overwritten.
 2. Change only `oc` in `~/dotfiles/zshrc` to:
 
    ```sh
@@ -158,23 +163,26 @@ These external changes require approval of paths and content before execution:
    ```
 
    The token file contains a new random secret, not the Logseq API token.
-   `logseq.py --serve` runs the service in the foreground. No launchd service is
-   installed by this implementation; persistent background startup remains
-   a separate explicit setup step.
+   `logseq.py --serve` runs the existing MCP service in the foreground.
+   On the configured Mac,
+   `~/Library/LaunchAgents/com.opencode-sbx.logseq.plist` starts this command at
+   login and restarts it when it exits. The plist is local setup; it is not
+   installed by `install-launcher.py`. Logseq itself and its HTTP API must
+   also be running.
 4. Register Rovo as shown above, then let the user authenticate.
 
-Browse is already registered and must not be overwritten. The installed runner
-can remain at its current stable path.
+Browse is already registered and must not be overwritten silently. If an installed
+runner is moved, update its registration explicitly and verify the new path before
+removing the old installation.
 
 ## Verification
 
-- Browse is registered and loaded into one existing project sandbox for a transport
-  test. Its tools are listed successfully. `status` returns a tool error because
-  the host browser relay is not running. Browser operation remains unverified.
-- Separate Logseq transport was tested with a temporary read-only host process:
+- The initial Browse transport probe listed tools but failed `status` with no
+  running relay. Later lifecycle and navigation tests below supersede that result.
+- The initial separate Logseq transport test used a temporary read-only host process:
   initialization, nine read tools and a synthetic missing-page lookup succeeded
   from that sandbox. No write tools were exposed; the process was stopped.
-- 153 Python tests pass, including native denial configuration, atomic connection publication,
+- 154 Python tests passed at the last code change, including native denial configuration, atomic connection publication,
   unrelated configuration preservation, conflicts, private mode and idempotence.
 - The earlier custom guard and its synthetic Node tests have been removed.
 - Fresh sandbox runtime test, 16 November 2026, found that the upstream kit's
@@ -199,7 +207,7 @@ can remain at its current stable path.
 - The permission test substituted a synthetic stdio server for the private HTTP
   endpoint inside the test sandbox. This verifies the native OpenCode boundary,
   not the complete production launcher, host HTTP transport or service lifecycle.
-  Those still require approved activation and end-to-end verification.
+  The later launcher test below covers the real host route separately.
 - End-to-end launcher test, 16 November 2026: the 24-file installation from
   commit `8decc04` in `~/.local/share/opencode-sbx/launcher-mcp-v2/` created a
   new sandbox through `start.py --content --setup-only`. Content layers, model
@@ -209,6 +217,16 @@ can remain at its current stable path.
   Code Mode against the real graph; Main's equivalent call was unknown/denied.
   No writes were attempted against the real graph. The sandbox and host
   service were stopped afterwards.
+- Browse navigation to NRK succeeded through the gateway and an actual OpenCode
+  agent call. Two natural-language requests with Claude Sonnet 5 also succeeded
+  in a new sandbox after adding a kit instruction about the two `execute` layers.
+  One attempt first guessed incorrect tool names before recovering; instructions
+  reduce model mistakes but do not eliminate them.
+- Those Browse tests used the API exposed on 16 November 2026. Newer releases
+  expose tab-oriented tools such as `navigate` and `snapshot`; consult the actual
+  catalog rather than assuming the old `execute` API exists.
+- Rovo authentication and gateway discovery/loading/catalog access succeeded.
+  No Jira or Confluence operation against company content was tested.
 - Do not write to the real graph for a permission test.
 
 References:
