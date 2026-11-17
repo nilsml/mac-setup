@@ -19,6 +19,18 @@ seed /opt/personal/files/aliases.zsh "$HOME/.config/zsh/aliases.zsh"
 seed /opt/personal/files/cli.json "$config/cli.json"
 seed /opt/personal/files/preferences.md "$config/preferences.md"
 
+# Ikke overskriv en eksisterende Neovim-konfigurasjon eller installerte plugins.
+if [ ! -e "$HOME/.config/nvim" ]; then
+    cp -R /opt/personal/files/nvim "$HOME/.config/nvim"
+fi
+for plugin in start/packer.nvim start/lualine.nvim start/nord-vim opt/nvim-web-devicons; do
+    destination="$HOME/.local/share/nvim/site/pack/packer/$plugin"
+    if [ ! -e "$destination" ]; then
+        mkdir -p "$(dirname "$destination")"
+        cp -R "/opt/personal/nvim/site/pack/packer/$plugin" "$destination"
+    fi
+done
+
 # Bevar Docker-genererte innstillinger og legg bare til shell og instruksjoner.
 python3 - "$config/opencode.json" <<'PY'
 import json

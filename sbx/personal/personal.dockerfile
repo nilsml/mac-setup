@@ -60,6 +60,21 @@ RUN git init /opt/oh-my-zsh \
     && git -C /opt/oh-my-zsh checkout --detach FETCH_HEAD \
     && rm -rf /opt/oh-my-zsh/.git
 
+# Samme pluginversjoner som i Macens aktive Packer-oppsett, uten runtime-nettverk.
+RUN set -eu; \
+    install_plugin() { \
+      destination="$1"; repository="$2"; revision="$3"; \
+      git init "$destination"; \
+      git -C "$destination" remote add origin "$repository"; \
+      git -C "$destination" fetch --depth 1 origin "$revision"; \
+      git -C "$destination" checkout --detach FETCH_HEAD; \
+    }; \
+    root=/opt/personal/nvim/site/pack/packer; \
+    install_plugin "$root/start/packer.nvim" https://github.com/wbthomason/packer.nvim ea0cc3c59f67c440c5ff0bbe4fb9420f4350b9a3; \
+    install_plugin "$root/start/lualine.nvim" https://github.com/nvim-lualine/lualine.nvim 47f91c416daef12db467145e16bed5bbfe00add8; \
+    install_plugin "$root/start/nord-vim" https://github.com/arcticicestudio/nord-vim f13f5dfbb784deddbc1d8195f34dfd9ec73e2295; \
+    install_plugin "$root/opt/nvim-web-devicons" https://github.com/kyazdani42/nvim-web-devicons 746ffbb17975ebd6c40142362eee1b0249969c5c
+
 COPY files/ /opt/personal/files/
 COPY install.sh /opt/personal/install.sh
 USER agent

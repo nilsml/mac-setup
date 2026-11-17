@@ -19,6 +19,7 @@ FILES = (
     "personal/personal.yaml", "personal/files/preferences.md",
     "personal/files/powerline/tui.tsx", "personal/files/zshrc",
     "personal/files/cli.json", "personal/files/aliases.zsh",
+    "personal/files/nvim/init.vim", "personal/files/nvim/lua/config.lua",
     "models/.dockerignore", "models/install.py", "models/models.dockerfile",
     "models/models.yaml", "models/providers.json",
 )
