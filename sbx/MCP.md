@@ -2,7 +2,8 @@
 
 Implemented and activated on the configured Mac: a shared dynamic catalog for
 Browse and Rovo, and a separate host-local Logseq connection using native V2
-permissions. This file explains the mechanisms and their limitations.
+permissions. Readwise is also registered and authorized in the shared catalog.
+This file explains the mechanisms and their limitations.
 For architecture diagrams, daily use and troubleshooting, start with
 [README.md](README.md).
 
@@ -27,8 +28,8 @@ The test delivery is a newly created disposable sandbox.
 Service availability is sandbox-wide. Agent-specific authorization is a separate
 layer. Logseq must never be registered in this shared gateway. Its separate
 connection is automatically included in new sandboxes when private host setup
-exists. Native rules restrict its use to the Logseq agent in the tested
-configuration. See the synthetic runtime verification below.
+exists. Native rules restrict its use to the personal assistant (now named Fokus)
+in the tested configuration. See the synthetic runtime verification below.
 
 ## Browse
 
@@ -80,10 +81,12 @@ Legacy Docker-generated flat server entries are normalized to `mcp.servers`.
 Conflicting Logseq connections are refused.
 
 The global rules deny `logseq_*`, listing Logseq resources, and reading Logseq
-resources. The mounted Logseq agent is the single source for its exceptions:
-default deny, the two Logseq skills, execute/question, Logseq tools and `ask`
-for the eight known write/delete operations. No separate access plugin or
-duplicate agent definition is installed. Without an agent exception, access
+resources. The mounted Fokus agent is the single source for its exceptions:
+Logseq tools are allowed, with `ask` for the eight known write/delete operations.
+Fokus now inherits ordinary OpenCode tool access instead of a blanket deny.
+Its focus is enforced through its mandate and workflow instructions.
+No separate access plugin or duplicate agent definition is installed.
+Without an agent exception, access
 remains denied.
 
 V2 documents that agent rules follow global rules and nested Code Mode calls
@@ -119,6 +122,40 @@ On the configured Mac, authorization, dynamic loading and tool catalog access
 have been verified. This does not prove a particular Jira or Confluence operation
 works; no company content was read or written for the connection test.
 Granted OAuth permissions include writes, so the connection is not read-only.
+
+## Readwise
+
+Readwise uses the existing shared gateway, with no custom proxy or host service:
+
+```sh
+sbx mcp add readwise --url https://mcp2.readwise.io/mcp --skip-auth
+sbx mcp auth readwise
+```
+
+Registration and sbx authentication are complete on the configured Mac.
+Dynamic sandboxes can discover and load the service. Old static
+sandbox configurations are not migrated. Credentials are managed by sbx on
+the host rather than copied into each disposable sandbox.
+
+On 17 November 2026, a dynamic test sandbox successfully discovered and loaded
+Readwise and listed 22 upstream tools, including all five expected reading
+tools. No library operation was called or personal reading content retrieved.
+The test sandbox was stopped afterwards.
+
+This shared route is available to agents with ordinary gateway permissions,
+including Fokus. Readwise exposes write, delete and export operations as well
+as reads. The Fokus prompt requires relevant, minimal reading by default and
+approval before changing external systems. This is a behavioral requirement,
+not a gateway-level read-only guarantee.
+
+The Mac's ordinary OpenCode has a separate, already authorized Readwise
+connection with global denial rules and five read exceptions for Fokus.
+That direct connection's restrictions do not apply to the sbx gateway.
+
+Fokus prefers `berget/moonshotai/Kimi-K3.1-Pro`. A synthetic direct test and
+a delegation test confirmed Berget/Kimi usage, including when the parent used
+a different model. Switching the main agent in an existing session does not
+automatically switch the session's stored model.
 
 ## Installed configuration and first-time setup
 
@@ -235,4 +272,5 @@ References:
 - <https://opencode.ai/docs/mcp-servers>
 - <https://opencode.ai/docs/permissions>
 - <https://opencode.ai/docs/agents>
+- <https://readwise.io/mcp>
 - <https://support.atlassian.com/atlassian-ai-gateway/docs/get-started-with-the-atlassian-remote-mcp-server/>

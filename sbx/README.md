@@ -34,6 +34,7 @@ flowchart LR
     Mounted["Skrivebeskyttede innholdsmounts"]
   end
   Rovo["Atlassian Rovo"]
+  Readwise["Readwise og Reader"]
   Catalog --> OC
   OC -->|"opprett eller åpne via sbx"| OpenCode
   Project -->|"les og skriv"| Workspace
@@ -44,6 +45,7 @@ flowchart LR
   Gateway --> Browse
   Browse --> Chrome
   Gateway --> Rovo
+  Gateway --> Readwise
   OpenCode -->|"separat MCP-forbindelse"| HostLogseq
   HostLogseq --> Graph
 ```
@@ -54,7 +56,7 @@ flowchart LR
 | --- | --- |
 | Docker Sandboxes (`sbx`) | Sandboxruntime, kit, mounts, secrets/proxy og MCP-gateway. Dette er eksisterende Docker-funksjonalitet. |
 | OpenCode | Sesjoner, agenter, skills, Code Mode og verktøyrettigheter. |
-| Browse, Rovo og `mcp-logseq` | Eksisterende MCP-tjenester. Browse styrer nettleseren på Macen, Rovo gir Atlassian-tilgang, og `mcp-logseq` snakker med Logseq. |
+| Browse, Rovo, Readwise og `mcp-logseq` | Eksisterende MCP-tjenester for nettleser, Atlassian, lesebibliotek og Logseq. |
 | Koden i dette repoet | Launcher, katalogbasert innholdsvalg, kit og små adaptere som kobler delene sammen. |
 | Privat vertskonfigurasjon | Valg av innholdskilder, innlogginger og tokenfiler. Ligger utenfor det offentlige repoet. |
 
@@ -91,7 +93,7 @@ miljøet; rett årsaken og bruk et nytt navn. Ingen automatisk reparasjon eller 
 
 ## Hvorfor vises bare `mcp-gateway` og `logseq`?
 
-Dette er de to forbindelsene OpenCode kjenner. Browse og Rovo ligger bak
+Dette er de to sandboxforbindelsene OpenCode kjenner. Browse, Rovo og Readwise ligger bak
 gatewayen og lastes ved behov.
 
 ```mermaid
@@ -99,19 +101,27 @@ flowchart LR
   Agent["OpenCode-agent"] --> Gateway["mcp-gateway"]
   Gateway --> Find["mcp-find: finn tjenesten"]
   Find --> Add["mcp-add: last tjenesten"]
-  Add --> Tools["Browse- eller Rovo-verktøy"]
+  Add --> Tools["Browse-, Rovo- eller Readwise-verktøy"]
   Agent --> Policy{"Logseq-rettighet"}
-  Policy -->|"Logseq-agent: tillatte verktøy"| Logseq["Separat logseq-forbindelse"]
+  Policy -->|"Fokus: tillatte verktøy"| Logseq["Separat logseq-forbindelse"]
   Policy -->|"Main og testede innebygde agenter"| Deny["Avslag"]
 ```
 
-- **Browse og Rovo:** registreres én gang på Macen. Agenten bruker gatewayens
+- **Browse, Rovo og Readwise:** registreres én gang på Macen. Agenten bruker gatewayens
   oppdagelsesverktøy og henter eksakt kallsti med OpenCodes `search`.
 - **Logseq:** ligger separat for å kunne avgrense entydige `logseq_*`-verktøynavn
   med OpenCodes agentrettigheter. Gatewayens generelle videresendingsverktøy
   ga ikke denne avgrensningen alene.
 - **Agentbytte:** kobler ikke Logseq fra. Forbindelsen består, mens agentens
   rettigheter avgjør om verktøyene kan brukes.
+- **Fokus:** er den personlige OKR-assistenten, tidligere kalt Logseq-agenten.
+  Den har vanlig verktøytilgang og et tydelig mandat om mål, kapasitet og læring.
+  Modellvalget er Kimi K3.1 Pro fra Berget. Som subagent bruker den dette valget;
+  et bytte av hovedagent endrer ikke automatisk modellen i en eksisterende sesjon.
+- **Readwise:** er registrert og autorisert i felles sbx-katalog. Oppdagelse,
+  lasting og verktøykatalog er testet fra en dynamisk sandbox uten å hente bibliotekinnhold.
+  Macens direkte Readwise-forbindelse er autorisert separat. Gatewayen tilbyr
+  også skriveverktøy; Fokus skal vise endringer og vente på ja før de brukes.
 - **Skriving:** kjente Logseq-skriveoperasjoner bruker `ask`. «Allow always»
   kan lagre en godkjenning, så ny tillatelsesdialog ved hvert skriv er ikke garantert.
 - **Sikkerhetsgrense:** dette er modellens verktøyrettigheter. Agenter med
