@@ -93,6 +93,23 @@ class ContentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate skills path"):
             self.plan({**self.spec, "skills": ["empty", "empty"]})
 
+    def test_workspace_as_source_uses_project_paths_without_extra_mount(self):
+        (self.source / "agents").mkdir()
+        (self.source / "agents" / "main.md").write_text("agent")
+        spec = {**self.spec, "agents": "agents", "defaultAgent": "main"}
+        other = self.root / "other"
+        (other / "abilities").mkdir(parents=True)
+        (other / "abilities" / "beta.md").write_text("x")
+        plan = content.build_plan(self.source, [
+            ("first", spec), ("second", {"source": str(other), "skills": ["abilities"]}),
+        ])
+        self.assertEqual(plan.mounts, (content.Mount(other, "/opt/opencode-content/second"),))
+        self.assertEqual(plan.workspace_root, str(self.source))
+        self.assertEqual(plan.skills, (f"{self.source}/skills", "/opt/opencode-content/second/abilities"))
+        self.assertEqual(plan.instructions, (f"{self.source}/rules.md",))
+        self.assertEqual(plan.agents, f"{self.source}/agents")
+        self.assertIsNone(self.plan().workspace_root)
+
     def test_content_target_cannot_overlap_project_target(self):
         with patch.object(Path, "is_dir", return_value=True):
             with self.assertRaisesRegex(ValueError, "overlaps"):

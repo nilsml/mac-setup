@@ -16,6 +16,7 @@ import profiles
 
 
 ROOT = Path(__file__).resolve().parent
+LAUNCHERS = (Path.home() / ".local/share/opencode-sbx").resolve()
 
 
 def sandbox_name(workspace):
@@ -79,14 +80,20 @@ def validate_existing(info, workspace, plan=None, check_kits=True):
         ))
     if len(actual_mounts) != len(expected_mounts) or set(actual_mounts) != expected_mounts:
         raise ValueError("Sandboxens vertsmounts avviker fra prosjektmappen og forventet skrivebeskyttet innhold.")
-    expected = {str(ROOT / "personal"), str(ROOT / "models")}
+    if check_kits and not has_our_kits(info):
+        raise ValueError("Sandboxen mangler våre mixiner. Velg et nytt --name.")
+
+
+def has_our_kits(info):
+    """Accept both mixins from this launcher or from one earlier installed launcher."""
     installed = {
-        str(Path(kit).resolve())
+        Path(kit).resolve()
         for kit in info.get("kits", [])
         if isinstance(kit, str) and kit.startswith("/")
     }
-    if check_kits and not expected.issubset(installed):
-        raise ValueError("Sandboxen mangler våre mixiner. Velg et nytt --name.")
+    roots = {kit.parent for kit in installed if kit.name == "personal"}
+    roots &= {kit.parent for kit in installed if kit.name == "models"}
+    return any(root == ROOT or root.parent == LAUNCHERS for root in roots)
 
 
 def inspect_sandbox(name):
@@ -103,12 +110,15 @@ def missing_secrets(info):
 
 
 def content_payload(plan):
-    return {
+    payload = {
         "skills": list(plan.skills),
         "instructions": list(plan.instructions),
         "agents": plan.agents,
         "default_agent": plan.default_agent,
     }
+    if plan.workspace_root:
+        payload["workspace"] = plan.workspace_root
+    return payload
 
 
 def configure_content(name, plan, check=False):
@@ -172,11 +182,20 @@ def main(argv=None):
         str(mount.get("container_target", "")).startswith("/opt/opencode-content/")
         for mount in sandbox_mounts(info)
     )
+    plan = None
+    if args.content and exists and not has_content:
+        # Content from the project itself needs no extra mount, so mounts alone
+        # cannot distinguish it from an older environment without content.
+        try:
+            candidate = selected_content(workspace, directory, args.catalog or profiles.DEFAULT_CATALOG)
+        except ValueError:
+            candidate = None  # Older environments open unchanged, as before.
+        if candidate and candidate.workspace_root and not candidate.mounts:
+            plan, has_content = candidate, True
     legacy = args.content and exists and not has_content
     # Existing environments are never retrofitted. Secrets travel over stdin only.
     logseq_remote = logseq.connection(Path.home(), workspace) if not exists else None
-    plan = None
-    if args.content and (not exists or has_content):
+    if args.content and (not exists or has_content) and plan is None:
         plan = selected_content(workspace, directory, args.catalog or profiles.DEFAULT_CATALOG)
     if has_content and not args.content:
         raise ValueError("Miljøet bruker innholdsmounts. Åpne med oc eller oppgi --content og samme katalog.")
@@ -188,6 +207,8 @@ def main(argv=None):
     if plan:
         for mount in plan.mounts:
             print(f"Skrivebeskyttet innhold: {mount.host} -> {mount.target}", flush=True)
+        if plan.workspace_root:
+            print(f"Innhold fra arbeidsområdet (skrivbart): {plan.workspace_root}", flush=True)
         print(f"Standardagent: {plan.default_agent or '(OpenCodes standard)'}", flush=True)
     elif args.content and exists:
         print("Eldre miljø åpnes uendret. Velg et nytt --name for innholdsmounts.", flush=True)

@@ -78,6 +78,34 @@ class ContentRuntimeTests(unittest.TestCase):
         self.assertNotIn("agents", json.loads(self.config.read_text()))
         self.assertTrue((self.home / ".config/opencode/agents/logseq.md").is_file())
 
+    def test_workspace_content_root_without_readonly_mounts(self):
+        workspace = self.mount.resolve()
+        payload = {
+            "skills": [str(workspace / "skills")],
+            "instructions": [str(workspace / "instructions/team.md")],
+            "agents": str(workspace / "agents"),
+            "default_agent": "reviewer",
+            "workspace": str(workspace),
+        }
+        missing_mount_root = self.base / "no-readonly-mounts"
+        configure(self.home, payload, missing_mount_root)
+        self.assertEqual((self.home / ".config/opencode/agents").resolve(), workspace / "agents")
+        marker = json.loads((self.home / ".local/state/opencode-sbx/content.json").read_text())
+        self.assertNotIn("workspace", marker)
+        self.assertTrue(check(self.home, payload, missing_mount_root))
+        outside = self.base / "outside"
+        (outside / "skills").mkdir(parents=True)
+        for bad in (
+            dict(payload, skills=[str(outside / "skills")]),
+            dict(payload, workspace="relative"),
+            dict(payload, workspace=str(Path.home())),
+        ):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                check(self.home, bad, missing_mount_root)
+        without_workspace = {key: value for key, value in payload.items() if key != "workspace"}
+        with self.assertRaises((ValueError, OSError)):
+            check(self.home, without_workspace, missing_mount_root)
+
     def test_conflicts_fail_before_mutation(self):
         self.config.parent.mkdir(parents=True)
         original = {"default_agent": "other"}

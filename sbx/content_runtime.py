@@ -30,16 +30,43 @@ def _read(path):
         raise ValueError(f"Cannot read valid JSON from {path}: {error}") from error
 
 
+FIELDS = {"skills", "instructions", "agents", "default_agent"}
+
+
+def _roots(payload, mount_root):
+    """Return content roots: read-only mounts, plus the project when it is a source."""
+    _require(isinstance(payload, dict) and set(payload) in (FIELDS, FIELDS | {"workspace"}),
+             "Invalid content payload fields.")
+    roots = []
+    if "workspace" in payload:
+        workspace = payload["workspace"]
+        _require(isinstance(workspace, str) and workspace.startswith("/")
+                 and workspace not in ("/", str(Path.home())),
+                 "Invalid workspace content root.")
+        roots.append(Path(workspace).resolve(strict=True))
+        _require(str(roots[0]) == workspace and roots[0].is_dir(),
+                 "Workspace content root must be an existing, unaliased directory.")
+        if Path(mount_root).is_dir():
+            roots.append(Path(mount_root).resolve(strict=True))
+    else:
+        roots.append(Path(mount_root).resolve(strict=True))
+        _require(roots[0].is_dir(), "Mount root must be a directory.")
+    return tuple(roots)
+
+
+def _boundary(path, roots):
+    for root in roots:
+        if str(path).startswith(str(root) + "/"):
+            return root
+    raise ValueError(f"Content path must be under {', '.join(map(str, roots))}: {path!r}")
+
+
 def _validate(payload, mount_root):
-    _require(isinstance(payload, dict) and set(payload) == {
-        "skills", "instructions", "agents", "default_agent"
-    }, "Invalid content payload fields.")
-    root = Path(mount_root).resolve(strict=True)
-    _require(root.is_dir(), "Mount root must be a directory.")
+    roots = _roots(payload, mount_root)
 
     def mounted(value, kind):
-        _require(isinstance(value, str) and value.startswith(str(root) + "/"),
-                 f"Content path must be under {root}: {value!r}")
+        _require(isinstance(value, str), f"Invalid content path: {value!r}")
+        root = _boundary(value, roots)
         path = Path(value)
         try:
             resolved = path.resolve(strict=True)
@@ -68,7 +95,8 @@ def _validate(payload, mount_root):
         _require(isinstance(default, str) and re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", default),
                  "Invalid default_agent.")
         default_path = Path(agents) / (default + ".md")
-        _require(default_path.is_file() and default_path.resolve().is_relative_to(root),
+        _require(default_path.is_file()
+                 and default_path.resolve().is_relative_to(_boundary(agents, roots)),
                  "default_agent Markdown file is missing.")
     return {"skills": skills, "instructions": instructions,
             "agents": agents, "default_agent": default}
@@ -102,16 +130,15 @@ def _skill_ids(directory, boundary, depth=0):
             yield from _skill_ids(entry, boundary, depth + 1)
 
 
-def _check_collisions(config, payload, home, mount_root):
+def _check_collisions(config, payload, home, roots):
     expected = set(payload["skills"])
     existing = config.get("skills", [])
     _require(isinstance(existing, list), "Expected skills as a list.")
     _require(all(isinstance(item, str) for item in existing), "Invalid skills entry.")
     _require(set(existing) <= expected, "Existing unrelated skills entries cannot be verified.")
     proposed = set()
-    boundary = Path(mount_root).resolve()
     for path in payload["skills"]:
-        for skill_id in _skill_ids(Path(path), boundary):
+        for skill_id in _skill_ids(Path(path), _boundary(path, roots)):
             _require(skill_id not in proposed, f"Duplicate skill ID: {skill_id}")
             proposed.add(skill_id)
     for path in (home / ".config/opencode/skills",):
@@ -131,7 +158,7 @@ def _check_collisions(config, payload, home, mount_root):
     _require("agent" not in config,
              "Legacy 'agent' config requires manual legacy-config-review.")
     if payload["agents"] is not None:
-        boundary = Path(mount_root).resolve()
+        boundary = _boundary(payload["agents"], roots)
         for agent_id in _agent_ids(Path(payload["agents"]), boundary):
             _require(agent_id not in configured_agents,
                      f"Agent ID conflicts with configured agent: {agent_id}")
@@ -226,7 +253,7 @@ def check(home: Path, payload, mount_root=Path("/opt/opencode-content")):
     home = Path(home)
     expected = _validate(payload, mount_root)
     _, config_path, config = _load_config(home)
-    _check_collisions(config, expected, home, mount_root)
+    _check_collisions(config, expected, home, _roots(payload, mount_root))
     configured = _expected_config(config, expected)
     _require(configured == config, "OpenCode content configuration has drifted.")
     link = home / ".config/opencode/agents"
@@ -245,7 +272,7 @@ def configure(home: Path, payload, mount_root=Path("/opt/opencode-content")):
     home = Path(home)
     expected = _validate(payload, mount_root)
     root, config_path, config = _load_config(home)
-    _check_collisions(config, expected, home, mount_root)
+    _check_collisions(config, expected, home, _roots(payload, mount_root))
     updated = _expected_config(config, expected)
     link = root / "agents"
     if expected["agents"] is None:

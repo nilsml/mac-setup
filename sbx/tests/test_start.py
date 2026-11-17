@@ -73,6 +73,21 @@ class StartTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate({**sandbox_info(), **change}, WORKSPACE)
 
+    def test_kits_from_earlier_installed_launcher_are_accepted(self):
+        validate = START["validate_existing"]
+        earlier = START["LAUNCHERS"] / "launcher-earlier"
+        validate({**sandbox_info(), "kits": [str(earlier / "personal"), str(earlier / "models")]}, WORKSPACE)
+        other = START["LAUNCHERS"] / "launcher-other"
+        for kits in (
+            [str(earlier / "personal"), str(other / "models")],
+            [str(earlier / "personal")],
+            ["/old/launcher/personal", "/old/launcher/models"],
+            [str(START["LAUNCHERS"] / "nested/launcher/personal"),
+             str(START["LAUNCHERS"] / "nested/launcher/models")],
+        ):
+            with self.subTest(kits=kits), self.assertRaises(ValueError):
+                validate({**sandbox_info(), "kits": kits}, WORKSPACE)
+
     def test_malformed_mount_metadata_is_rejected_cleanly(self):
         for mounts in (None, "invalid", [None], ["invalid"],
                        [{**sandbox_info()["host_mounts"][0], "container_target": {}}],
@@ -245,6 +260,51 @@ class ContentStartTests(unittest.TestCase):
             START["main"]([*self.args, "--setup-only"])
         self.assertEqual(run.call_count, 2)
 
+    def workspace_catalog(self):
+        catalog = self.base / "workspace-catalog.json"
+        catalog.write_text(json.dumps({
+            "schemaVersion": 2, "layers": [{
+                "id": "personal", "scope": {"type": "always"}, "requires": [],
+                "content": {**self.spec, "source": str(self.source)},
+            }],
+        }))
+        info = {**self.info, "workspace": str(self.source), "host_mounts": [{
+            "host_path": str(self.source), "container_target": str(self.source), "read_only": False,
+        }]}
+        args = [str(self.source), "--name", "content-test", "--content", "--catalog", str(catalog)]
+        return args, info
+
+    def test_workspace_as_content_source_has_no_conflicting_readonly_mount(self):
+        args, info = self.workspace_catalog()
+        responses = [
+            subprocess.CompletedProcess([], 0, ""),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0, json.dumps(info)),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run, \
+                patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="ja"):
+            START["main"](args)
+        create = run.call_args_list[1].args[0]
+        self.assertEqual(create[:4], ["sbx", "create", "opencode", str(self.source)])
+        self.assertFalse(any(part.endswith(":ro") for part in create))
+        payload = json.loads(run.call_args_list[3].kwargs["input"])
+        self.assertEqual(payload["workspace"], str(self.source))
+        self.assertEqual(payload["skills"], [f"{self.source}/skills"])
+
+    def test_reopened_workspace_content_is_checked_not_treated_as_legacy(self):
+        args, info = self.workspace_catalog()
+        responses = [
+            subprocess.CompletedProcess([], 0, "content-test\n"),
+            subprocess.CompletedProcess([], 0, json.dumps(info)),
+            subprocess.CompletedProcess([], 0),
+        ]
+        with patch("subprocess.run", side_effect=responses) as run:
+            START["main"]([*args, "--setup-only"])
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_args.args[0][-1], "--check")
+
     def test_mount_check_rejects_readwrite_extra_missing_and_duplicate_mounts(self):
         for mounts in (
             self.info["host_mounts"][:1],
@@ -321,6 +381,16 @@ class ModelsTests(unittest.TestCase):
         ):
             with self.subTest(config=config), self.assertRaises(ValueError):
                 MODELS["merge_providers"](config, {"berget": {}})
+
+    def test_default_model_is_fallback_only(self):
+        default = MODELS["with_default_model"]
+        original = {"shell": "/usr/bin/zsh"}
+        self.assertEqual(default(original), {**original, "model": "openai/gpt-6.1-sol"})
+        self.assertNotIn("model", original)
+        chosen = {"model": "anthropic/claude-opus-5-5"}
+        self.assertIs(default(chosen), chosen)
+        with self.assertRaises(ValueError):
+            default({"model": {"id": "x"}})
 
 
 if __name__ == "__main__":

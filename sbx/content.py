@@ -20,6 +20,7 @@ class ContentPlan:
     instructions: tuple[str, ...]
     agents: str | None
     default_agent: str | None
+    workspace_root: str | None = None
 
 
 def _require(condition, message):
@@ -120,7 +121,7 @@ def build_plan(workspace, selected, directory=None):
 
     mounts, skills, instructions = [], [], []
     ids, sources, skill_ids, instruction_paths = set(), set(), set(), set()
-    agents = default_agent = None
+    agents = default_agent = workspace_root = None
     supplied_agent_ids = set()
     for item in selected:
         _require(isinstance(item, (tuple, list)) and len(item) == 2, "Invalid selected layer.")
@@ -143,13 +144,18 @@ def build_plan(workspace, selected, directory=None):
                  "Source must be an existing directory other than root or home.")
         _require(source not in sources, f"Duplicate source: {source}")
         sources.add(source)
-        target = f"/opt/opencode-content/{layer}"
-        container_path = Path(target)
-        _require(
-            not workspace.is_relative_to(container_path) and not container_path.is_relative_to(workspace),
-            "Content target overlaps the project mount.",
-        )
-        mounts.append(Mount(source, target))
+        if source == workspace:
+            # sbx cannot mount the same host path both writable and read-only.
+            # The project mount already exposes the content at the same path.
+            target = workspace_root = str(workspace)
+        else:
+            target = f"/opt/opencode-content/{layer}"
+            container_path = Path(target)
+            _require(
+                not workspace.is_relative_to(container_path) and not container_path.is_relative_to(workspace),
+                "Content target overlaps the project mount.",
+            )
+            mounts.append(Mount(source, target))
         for key in ("skills", "instructions"):
             values = spec.get(key, [])
             _require(isinstance(values, list) and (key != "skills" or bool(values)),
@@ -201,4 +207,5 @@ def build_plan(workspace, selected, directory=None):
         if supplied_agent_ids and path.is_dir():
             for agent in _agent_ids(path, workspace):
                 _require(agent not in supplied_agent_ids, f"Duplicate agent ID: {agent}")
-    return ContentPlan(tuple(mounts), tuple(skills), tuple(instructions), agents, default_agent)
+    return ContentPlan(tuple(mounts), tuple(skills), tuple(instructions), agents, default_agent,
+                       workspace_root)
