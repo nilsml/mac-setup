@@ -258,19 +258,19 @@ ChatGPT-innloggingen skal være registrert i `sbx` **før sandboxen opprettes**.
 `oc.py` gir én inngang for prosjektoppstart og eksisterende miljøer:
 
 ```sh
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py           # Meny med navn, status og prosjekt
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py .         # Opprett eller gjenåpne prosjektmiljø
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py list
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py open NAVN
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py shell NAVN
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py stop NAVN
-python3 ~/.local/share/opencode-sbx/launcher-mcp-v2/oc.py capabilities .
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py           # Meny med navn, status og prosjekt
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py .         # Opprett eller gjenåpne prosjektmiljø
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py list
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py open NAVN
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py shell NAVN
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py stop NAVN
+python3 ~/.local/share/opencode-sbx/launcher-current/oc.py capabilities .
 ```
 
 Kortkommandoen `oc` installeres ikke av scriptet. Den er lagt inn separat i brukerens dotfiles etter godkjenning. For gjeldende zsh-økt kan du definere:
 
 ```sh
-oc() { python3 "$HOME/.local/share/opencode-sbx/launcher-mcp-v2/oc.py" "$@"; }
+oc() { python3 "$HOME/.local/share/opencode-sbx/launcher-current/oc.py" "$@"; }
 ```
 
 Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop NAVN` tilstrekkelig. Permanent shelloppsett gjøres separat i dotfiles etter godkjenning.
@@ -336,6 +336,13 @@ komponenter og beviser ikke at skills, MCP, agenter eller hovedinstruksjoner
 er tilgjengelige. Lagvalg aktiverer ikke innholdslevering ved oppstart.
 
 Format og sikkerhetsgrenser står i [CONTENT-MOUNTS.md](CONTENT-MOUNTS.md).
+
+Når prosjektmappen er nøyaktig samme mappe som kilden til et innholdslag,
+for eksempel `oc .` i `~/Dev/nml-skills`, monteres laget ikke en gang til.
+`sbx` tillater ikke samme vertssti som både skrivbar og skrivebeskyttet mount.
+Skills, instruksjoner og agenter leses da direkte fra den skrivbare
+prosjektmappen. Agenten i sandboxen kan dermed endre sine egne instruksjoner
+og agentdefinisjoner. Nestede mapper behandles som før.
 
 Det opprinnelige oppstartsscriptet kan fortsatt brukes direkte:
 
@@ -428,6 +435,7 @@ Ikke bruk `sbx run --rm`, `sbx prune` eller `sbx reset` som daglig avslutningsko
 
 - `sbx` lagrer secrets i macOS Nøkkelring, ifølge Docker-dokumentasjonen.
 - ChatGPT bruker global OAuth i `sbx`. Sandboxens tilgang avhenger også av kit og godkjenninger.
+- Nye sandboxer får `openai/gpt-6.1-sol` som standardmodell, satt i `models/install.py`. Den settes bare når `model` mangler, og agenter med egen modell beholder den. Eksisterende sandboxer endres ikke.
 - Anthropic og Berget registreres som sandbox-avgrensede API-nøkler.
 - Proxyen på Macen setter inn ekte credentials for godkjente leverandørdomener. Sandboxen bruker plassholdere.
 - Berget-mixinen begrenser credential-injeksjon til `api.berget.ai`.
@@ -468,11 +476,27 @@ sbx/
 
 Mixinene bygges og caches av `sbx`. De kan gjenbrukes mellom prosjekter, mens hver sandbox beholder egne data og avgrensninger. Kopierte personlige standardinnstillinger oppdateres manuelt fra gjennomgåtte kilder; Macens konfigurasjon er ikke montert.
 
+Neovim-konfigurasjonen er kopiert fra Macen. Packer, Lualine, Nord og
+nvim-web-devicons hentes i de samme versjonene ved bygging, slik at oppstart
+ikke krever nedlasting av plugins. Eksisterende konfigurasjon og plugins
+overskrives ikke. Eldre plugins i Macens `nvim/plugged` er ikke del av den
+aktive Packer-konfigurasjonen og følger ikke med. Tilgang til Macens
+utklippstavle fra sandboxen er ikke verifisert.
+
 Endringer i repoet oppdaterer ikke den installerte launcheren automatisk.
-`install-launcher.py` nekter å skrive over en ikke-tom målmappe. En oppdatering
-krever derfor en gjennomgått installasjon i en ny mappe og et eksplisitt bytte
-av `oc`. Oppdater også eventuelle vertstjenester og MCP-registreringer som peker
-til den gamle installasjonen før denne ryddes bort.
+`install-launcher.py` nekter å skrive over en ikke-tom målmappe. `oc` peker
+derfor på den faste lenken `launcher-current`. En oppdatering installeres i en
+ny mappe, og deretter flyttes lenken. `zshrc` trenger ikke endres:
+
+```sh
+python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-v4 --apply
+ln -sfn launcher-v4 ~/.local/share/opencode-sbx/launcher-current
+```
+
+Eksisterende sandboxer kan fortsatt gjenåpnes med `oc .` når mixinene kommer fra
+en tidligere launcher under `~/.local/share/opencode-sbx/`. Oppdater også
+eventuelle vertstjenester og MCP-registreringer som peker til den gamle
+installasjonen før denne ryddes bort.
 
 Endrede kitfiler krever en ny sandbox med nytt navn. Behold den gamle til data
 og arbeidsflyt er kontrollert. Dette gjelder kopierte filer; levende
