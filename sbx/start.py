@@ -32,6 +32,7 @@ def inspect_commands(workspace, name, directory, all_tabs, plan=None):
         create.append(f"{mount.host}:{mount.target}:ro")
     create += [
         "--name", name,
+        "--pull", "always",
         "--kit", str(ROOT / "personal"), "--kit", str(ROOT / "models"),
         "--skills", "off",
         # The upstream kit injects legacy {"permission":{"*":"allow"}}.

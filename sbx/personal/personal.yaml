@@ -10,6 +10,9 @@ capabilities:
         allow:
           - data.norges-bank.no:443
           - api.berget.ai:443
+          - registry.npmjs.org:443
+          - pypi.org:443
+          - files.pythonhosted.org:443
   - type: com.docker.sandbox/lifecycle@1
     config:
       install:

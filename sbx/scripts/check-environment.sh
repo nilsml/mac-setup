@@ -5,9 +5,14 @@ set -eu
 test "$(id -un)" = agent
 test "$HOME" = /home/agent
 opencode --version
-for tool in zsh starship git curl node npm python3 eza nvim gh; do
+for tool in zsh starship git curl node npm npx python3 uv eza nvim gh jq rg yamllint actionlint shellcheck; do
     command -v "$tool"
 done
+node -e 'if (process.versions.node.split(".")[0] !== "24") process.exit(1)'
+uv --version
+actionlint -version
+yamllint --version
+shellcheck --version
 zsh -n "$HOME/.zshrc"
 zsh -n "$HOME/.config/zsh/aliases.zsh"
 test -f "$HOME/.config/opencode/plugins/powerline/tui.tsx"

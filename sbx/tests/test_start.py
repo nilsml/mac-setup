@@ -39,6 +39,12 @@ class StartTests(unittest.TestCase):
         create, _ = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
         self.assertNotIn("--static-mcp", create)
 
+    def test_new_sandbox_always_pulls_images_without_changing_reopen(self):
+        create, attach = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
+        index = create.index("--pull")
+        self.assertEqual(create[index + 1], "always")
+        self.assertNotIn("--pull", attach)
+
     def test_new_sandbox_removes_upstream_inline_allow_all_override(self):
         create, attach = START["inspect_commands"](WORKSPACE, "test-sandbox", WORKSPACE, False)
         index = create.index("--env")

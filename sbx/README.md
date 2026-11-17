@@ -91,6 +91,24 @@ katalogen, ikke i launcherkoden.
 Eksisterende miljøer migreres ikke. Ved ufullstendig førstegangsoppsett beholdes
 miljøet; rett årsaken og bruk et nytt navn. Ingen automatisk reparasjon eller sletting.
 
+### Oppdateringer og byggecache
+
+Ved opprettelse av nye miljøer bruker launcheren `--pull always`, slik at
+publiserte kit-images sjekkes mot registeret fremfor å bruke standardvalget
+`missing`. `opencode` velger normalt `docker.io/sbx/opencode:latest`;
+en konfigurert `kit.shortcuts.opencode` kan velge en annen referanse.
+Dette oppgraderer ikke eksisterende sandboxer.
+
+Lokale mixiner bygges med cache når kildefiler og kitargumenter er uendret.
+`--pull always` er ingen garanti for nybygging av lokale mixiner.
+Digesten i `personal/personal.dockerfile` låser mixinens byggegrunnlag.
+En mixin tilfører bare filene Dockerfilen legger til eller endrer, så denne
+digesten låser ikke i seg selv workloadens OpenCode-versjon.
+
+Kilder: [Docker: kitreferanser og cache](https://docs.docker.com/ai/sandboxes/customize/use-kits/),
+[Docker: mixininnhold](https://docs.docker.com/ai/sandboxes/customize/author/tool-mixins/)
+og `sbx create --help`.
+
 ## Hvorfor vises bare `mcp-gateway` og `logseq`?
 
 Dette er de to sandboxforbindelsene OpenCode kjenner. Browse, Rovo og Readwise ligger bak
@@ -187,7 +205,42 @@ modellvalg, fremtidige MCP-versjoner eller gjenoppretting etter sletting.
 
 ## Første oppsett på en Mac
 
-Du trenger Docker Sandboxes (`sbx`), Python 3.9 eller nyere på verten og OpenCode på Macen. Sandboxen bruker Python 3.13. `sbx` har sin egen runtime; vanlig Docker Desktop-daemon er ikke nødvendig for arbeidsflyten nedenfor.
+Du trenger Docker Sandboxes (`sbx`), Python 3.9 eller nyere på verten og OpenCode på Macen. `sbx` har sin egen runtime; vanlig Docker Desktop-daemon er ikke nødvendig for arbeidsflyten nedenfor.
+
+### Felles utviklingsbasis
+
+`personal` legger til Python 3 med virtuelle miljøer, Node 24 LTS med npm/npx,
+`uv`, `actionlint`, `yamllint` og `shellcheck`, i tillegg til personlig shell
+og editor. Git, GitHub CLI, jq, ripgrep og make finnes i den gjennomgåtte
+OpenCode-workloaden. Python brukes som `python3`.
+
+Node, uv og actionlint har eksplisitte versjoner i Dockerfilen og nedlastinger
+kontrolleres mot utgiverens SHA256-lister. Python, yamllint og shellcheck følger
+pakkekildene i mixinens byggegrunnlag. npm og PyPI er tillatt i kitets
+nettverkspolicy, fortsatt underlagt eventuell overordnet policy.
+
+Installer prosjektavhengigheter fra prosjektets avhengighetsfiler.
+PyYAML og pytest er eksempler på prosjektavhengigheter; de installeres ikke
+globalt. Bruk isolerte Python-miljøer og unngå å dele `.venv` eller
+`node_modules` mellom Mac og Linux. Sandboxens egen hjemmekatalog kan brukes
+til slike lokale miljøer; innhold der må kunne gjenskapes ved sletting.
+
+Java, .NET, native kompilatorer og større nettleseroppsett er ikke del av denne
+basisen. Java og .NET kan senere leveres som valgfrie V3-mixiner ved opprettelse.
+Launcheren har foreløpig ingen velger for slike tillegg.
+
+Kjør `sh sbx/scripts/check-environment.sh` inne i sandboxen fra dette repoet
+for å kontrollere verktøy og personlig konfigurasjon. Pakkeinstallasjon og
+nettverkstilgang må testes separat.
+
+Basisoppsettet ble funksjonstestet 17. november 2026 i en ny, mountløs
+ARM64-sandbox med OpenCode 2.3.0: Node 24.22.3, uv 0.13.9, actionlint 1.7.12,
+yamllint 1.37.1 og ShellCheck 0.10.0. Isolert installasjon av PyYAML fra PyPI
+og `npm ci` fra npm-registeret bestod. Alle tre validatorer godtok gyldige
+testfiler og avviste ugyldige testfiler. Miljøkontrollen bestod også etter
+stopp/start. Ingen modellkall eller prosjektmount ble brukt. AMD64 er ikke
+funksjonstestet. Testen brukte repoets kit, ikke den installerte launcherens
+kitkopi på Macen.
 
 Kontroller og logg inn fra terminalen:
 
