@@ -50,6 +50,9 @@ if preferences not in instructions:
 path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n")
 PY
 
+# twg lenker skillene inn for OpenCode. Eksisterende skills oppdateres bare.
+twg skills install --yes --agent opencode >/dev/null
+
 if [ -f /opt/personal/files/powerline/tui.tsx ]; then
     mkdir -p "$config/plugins/powerline"
     seed /opt/personal/files/powerline/tui.tsx "$config/plugins/powerline/tui.tsx"

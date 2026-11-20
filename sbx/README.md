@@ -290,6 +290,24 @@ Deretter er `oc`, `oc .`, `oc list`, `oc open NAVN`, `oc shell NAVN` og `oc stop
 - Launcheren har ingen slettekommando, automatisk oppgradering eller egen
   bakgrunnsmodus. Dette er separat fra vertstjenester som Logseq-forbindelsen.
 
+### Jira og Confluence med twg
+
+Nye sandboxer har `twg` (Atlassian Teamwork Graph CLI) installert, med
+twg-skillene lenket inn for OpenCode. Versjonen er låst i
+`personal/personal.dockerfile`. Innloggingen følger ikke med fra Macen og må
+gjøres én gang per sandbox:
+
+```sh
+oc shell NAVN
+twg login
+```
+
+Innloggingen bruker OAuth med enhetskode: åpne lenken på Macen og bekreft.
+Tokenet lagres i sandboxen og forsvinner når sandboxen slettes. Etter
+innlogging kan `twg skills install --yes --agent opencode` hente flere skills.
+Grunninstruksjonene ber agenten bruke twg for Atlassian og Rovo bare når du
+ber om det. Eksisterende sandboxer får ikke twg automatisk.
+
 ### Nye miljøer med innholdsmounts
 
 `oc . --name NYTT-NAVN` bruker katalogformat 2 til å velge skrivebeskyttede

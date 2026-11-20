@@ -10,6 +10,13 @@
   tjeneste. En skill eller agentdefinisjon oppretter ingen MCP-tilkobling.
 - Ikke les eller endre hemmeligheter eller forsøk å omgå sandboxens avgrensninger.
 
+## Jira og Confluence
+
+- Bruk twg CLI og twg-skillene for Jira, Confluence og annen Atlassian-kontekst.
+- Hvis twg ikke er innlogget, be brukeren kjøre `twg login` i sandboxens terminal
+  (`oc shell NAVN`). Ikke start innloggingen selv.
+- Rovo bak mcp-gateway er bare reserve når brukeren ber om det.
+
 ## Browse gjennom MCP-gateway
 
 - Finn verktøyets eksakte kallsti med search.

@@ -60,6 +60,24 @@ RUN git init /opt/oh-my-zsh \
     && git -C /opt/oh-my-zsh checkout --detach FETCH_HEAD \
     && rm -rf /opt/oh-my-zsh/.git
 
+# Atlassian Teamwork Graph CLI. Innlogging skjer per sandbox med twg login.
+ARG TWG_VERSION=1.4.6
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      arm64) twg_arch=arm64 ;; \
+      amd64) twg_arch=x64 ;; \
+      *) echo "Ukjent arkitektur: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /tmp/twg; \
+    cd /tmp/twg; \
+    twg_binary="twg-linux-${twg_arch}-v${TWG_VERSION}"; \
+    curl -fsSLO "https://teamwork-graph.atlassian.com/cli/${twg_binary}"; \
+    curl -fsSLO "https://teamwork-graph.atlassian.com/cli/SHA256SUMS-v${TWG_VERSION}"; \
+    grep " [*]\{0,1\}${twg_binary}\$" "SHA256SUMS-v${TWG_VERSION}" | sha256sum -c -; \
+    install -m 0755 "$twg_binary" /usr/local/bin/twg; \
+    twg --version; \
+    rm -rf /tmp/twg
+
 # Samme pluginversjoner som i Macens aktive Packer-oppsett, uten runtime-nettverk.
 RUN set -eu; \
     install_plugin() { \
