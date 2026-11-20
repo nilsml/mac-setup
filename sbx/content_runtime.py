@@ -141,17 +141,19 @@ def _check_collisions(config, payload, home, roots):
         for skill_id in _skill_ids(Path(path), _boundary(path, roots)):
             _require(skill_id not in proposed, f"Duplicate skill ID: {skill_id}")
             proposed.add(skill_id)
+    # Tools such as twg link global skills to their own folder under home.
+    home_boundary = home.resolve()
     for path in (home / ".config/opencode/skills",):
         if path.is_symlink():
             raise ValueError(f"Cannot verify symlinked global skills directory: {path}")
         if path.is_dir():
-            for skill_id in _skill_ids(path, path.resolve()):
+            for skill_id in _skill_ids(path, home_boundary):
                 _require(skill_id not in proposed, f"Skill ID conflicts with existing global skill: {skill_id}")
     for path in (home / ".agents/skills", home / ".claude/skills"):
         if path.is_symlink():
             raise ValueError(f"Cannot verify symlinked compatibility skills directory: {path}")
         if path.is_dir():
-            for skill_id in _skill_ids(path, path.resolve()):
+            for skill_id in _skill_ids(path, home_boundary):
                 _require(skill_id not in proposed, f"Skill ID conflicts with existing global skill: {skill_id}")
     configured_agents = config.get("agents", {})
     _require(isinstance(configured_agents, dict), "Expected agents as an object.")

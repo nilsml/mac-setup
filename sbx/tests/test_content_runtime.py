@@ -208,6 +208,28 @@ class ContentRuntimeTests(unittest.TestCase):
             configure(self.home, grouped_payload, self.mount)
         self.assertTrue((self.home / ".config/opencode/agents").is_symlink())
 
+    def test_global_skill_links_within_home_are_checked_not_rejected(self):
+        real = self.home / ".config/twg/skills"
+        (real / "twg").mkdir(parents=True)
+        (real / "twg/SKILL.md").write_text("twg")
+        for folder in (".agents/skills", ".config/opencode/skills"):
+            path = self.home / folder
+            path.mkdir(parents=True)
+            (path / "twg").symlink_to(real / "twg", target_is_directory=True)
+        configure(self.home, self.payload, self.mount)
+        self.assertTrue(check(self.home, self.payload, self.mount))
+        (real / "demo").mkdir()
+        (real / "demo/SKILL.md").write_text("collision")
+        (self.home / ".agents/skills/demo").symlink_to(real / "demo", target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "conflicts with existing global skill: demo"):
+            check(self.home, self.payload, self.mount)
+        (self.home / ".agents/skills/demo").unlink()
+        outside = self.base / "outside-skill"
+        outside.mkdir()
+        (self.home / ".agents/skills/outside").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "escapes source"):
+            check(self.home, self.payload, self.mount)
+
     def test_rejects_symlinked_compatibility_skill_directory(self):
         real = self.base / "real-skills"
         real.mkdir()
