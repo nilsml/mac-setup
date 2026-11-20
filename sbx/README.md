@@ -249,9 +249,17 @@ sbx version
 sbx login
 sbx secret set openai --oauth
 opencode auth list
+sbx settings set clipboard.textCopy true    # kopiere fra sandbox til Mac
+sbx settings set clipboard.imagePaste true  # lime bilder inn i OpenCode
 ```
 
 ChatGPT-innloggingen skal være registrert i `sbx` **før sandboxen opprettes**. Anthropic og Berget må ha aktive API-nøkkelinnlogginger i Macens OpenCode, slik at engangsoverføringen kan hente dem.
+
+Utklippstavlen er av som standard i sbx. Innstillingene gjelder alle sandboxer,
+også kjørende. Med `textCopy` kan alt i sandboxen overskrive Macens
+utklippstavle, og med `imagePaste` kan agenter lese bilder fra den. Tekst limes
+inn med Cmd+V i terminalen; sbx støtter ikke å lese tekst fra Macen, så `"+p` i
+Neovim henter ikke fra Macen.
 
 ## Daglig bruk
 
