@@ -4,7 +4,27 @@ import json
 from pathlib import Path
 
 
-DEFAULT_MODEL = "openai/gpt-6.1-sol"
+DEFAULT_MODEL = "openai/gpt-6.2-sol"
+# opencode gir bare gratismodeller i sandboxen, fordi den bruker offentlig nøkkel.
+ALLOWED_PROVIDERS = ("openai", "anthropic", "berget", "opencode")
+PROVIDER_POLICIES = (
+    {"action": "provider.use", "resource": "*", "effect": "deny"},
+    *(
+        {"action": "provider.use", "resource": name, "effect": "allow"}
+        for name in ALLOWED_PROVIDERS
+    ),
+)
+
+
+def with_provider_policies(config, rules=PROVIDER_POLICIES):
+    """Append provider rules last, so they win over earlier policies."""
+    current = config.get("policies", [])
+    if not isinstance(current, list):
+        raise ValueError("Forventet policies som liste. Ingen filer endret.")
+    rules = list(rules)
+    if current[-len(rules):] == rules:
+        return config
+    return {**config, "policies": [*current, *rules]}
 
 
 def with_default_model(config, model=DEFAULT_MODEL):
@@ -36,7 +56,9 @@ def main():
     path = root / "opencode.json"
     config = json.loads(path.read_text()) if path.exists() else {}
     additions = json.loads(Path(__file__).with_name("providers.json").read_text())
-    updated = with_default_model(merge_providers(config, additions))
+    updated = with_provider_policies(
+        with_default_model(merge_providers(config, additions))
+    )
     root.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n")
 

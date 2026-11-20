@@ -461,7 +461,8 @@ Ikke bruk `sbx run --rm`, `sbx prune` eller `sbx reset` som daglig avslutningsko
 
 - `sbx` lagrer secrets i macOS Nøkkelring, ifølge Docker-dokumentasjonen.
 - ChatGPT bruker global OAuth i `sbx`. Sandboxens tilgang avhenger også av kit og godkjenninger.
-- Nye sandboxer får `openai/gpt-6.1-sol` som standardmodell, satt i `models/install.py`. Den settes bare når `model` mangler, og agenter med egen modell beholder den. Eksisterende sandboxer endres ikke.
+- Nye sandboxer får `openai/gpt-6.2-sol` som standardmodell, satt i `models/install.py`. Den settes bare når `model` mangler, og agenter med egen modell beholder den. Eksisterende sandboxer endres ikke.
+- Nye sandboxer viser bare leverandørene `openai`, `anthropic`, `berget` og `opencode`. `models/install.py` legger `provider.use`-regler sist i `policies`: avslag for `*`, deretter tillatelse for de fire. `opencode` gir bare gratismodeller i sandboxen, fordi den bruker offentlig nøkkel. Andre leverandører, som `openrouter`, `github-copilot`, `google`, `groq` og `xai`, skjules selv om sandboxen har nøkler for dem.
 - Anthropic og Berget registreres som sandbox-avgrensede API-nøkler.
 - Proxyen på Macen setter inn ekte credentials for godkjente leverandørdomener. Sandboxen bruker plassholdere.
 - Berget-mixinen begrenser credential-injeksjon til `api.berget.ai`.

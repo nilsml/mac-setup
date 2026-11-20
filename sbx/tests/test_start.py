@@ -385,12 +385,29 @@ class ModelsTests(unittest.TestCase):
     def test_default_model_is_fallback_only(self):
         default = MODELS["with_default_model"]
         original = {"shell": "/usr/bin/zsh"}
-        self.assertEqual(default(original), {**original, "model": "openai/gpt-6.1-sol"})
+        self.assertEqual(default(original), {**original, "model": "openai/gpt-6.2-sol"})
         self.assertNotIn("model", original)
         chosen = {"model": "anthropic/claude-opus-5-5"}
         self.assertIs(default(chosen), chosen)
         with self.assertRaises(ValueError):
             default({"model": {"id": "x"}})
+
+    def test_provider_policies_are_appended_once(self):
+        apply = MODELS["with_provider_policies"]
+        earlier = {"action": "provider.use", "resource": "groq", "effect": "allow"}
+        original = {"shell": "/usr/bin/zsh", "policies": [earlier]}
+        result = apply(original)
+        self.assertEqual(original["policies"], [earlier])
+        self.assertEqual(result["policies"][0], earlier)
+        self.assertEqual(
+            result["policies"][1],
+            {"action": "provider.use", "resource": "*", "effect": "deny"},
+        )
+        allowed = [rule["resource"] for rule in result["policies"][2:]]
+        self.assertEqual(allowed, ["openai", "anthropic", "berget", "opencode"])
+        self.assertIs(apply(result), result)
+        with self.assertRaises(ValueError):
+            apply({"policies": {}})
 
 
 if __name__ == "__main__":
