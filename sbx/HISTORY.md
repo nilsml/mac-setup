@@ -153,3 +153,93 @@ Verifisert 16. november 2026 med `sbx` 0.53.0 og OpenCode 2.3.0 på macOS.
   grunninstruksjoner, forventet ruting for personlige mapper, arbeidsrot,
   skill-repoer, produktrepo og undermappe, uten kjente navnekollisjoner.
   Shellsyntaks, diffkontroll og alle 125 tester bestod.
+
+## Neovim, launcherlenke, standardmodell, twg og utklippstavle
+
+Utført 17.–20. november 2026. Commits `17812a5` til `e6dc860` i mac-setup.
+
+### Neovim i sandboxen
+
+- Macens aktive oppsett er `init.vim` og `lua/config.lua` med Packer, Lualine,
+  Nord og nvim-web-devicons. Filene er kopiert til `personal/files/nvim/`.
+- Pluginene hentes ved bygging med samme commits som på Macen og kopieres inn
+  ved opprettelse hvis de mangler. Ingen nedlasting ved oppstart.
+- Eldre plugins i Macens `nvim/plugged` lastes ikke av Macens konfigurasjon og
+  er ikke tatt med.
+- Bygget mixin og Neovim 0.10.4 lastet Nord, Lualine og Packer uten nettverk.
+
+### Launcheren og eksisterende sandboxer
+
+- `install-launcher.py` skriver ikke over en ikke-tom mappe. `oc` i dotfiles
+  peker derfor på lenken `~/.local/share/opencode-sbx/launcher-current`.
+  Oppdatering: installer i ny mappe og kjør `ln -sfn`. Gjeldende er `launcher-v5`.
+- Funn: etter bytte av launchermappe nektet `oc .` å gjenåpne eksisterende
+  sandboxer, fordi mixinstien måtte være lik den aktive launcheren. Nå godtas
+  `personal` og `models` fra samme installasjon under `~/.local/share/opencode-sbx/`
+  eller repoet. Tørrkjøring for `oc-nfi` bekreftet gjenåpning.
+- Browse er fortsatt registrert mot `launcher-mcp-v2/mcp_host.py`. Gamle
+  launchermapper må ikke ryddes før registreringen er flyttet.
+
+### Innholdsrepo som prosjekt
+
+- `oc .` i `~/Dev/nml-skills` feilet med sbx-feilen
+  `conflicting read-only settings`: samme mappe ble både skrivbar prosjektmount
+  og skrivebeskyttet innholdsmount.
+- Brukeren valgte å lese innholdet direkte fra prosjektmappen. Når kilden er
+  nøyaktig lik prosjektmappen, lages ingen ekstra mount. Nestede mapper
+  behandles som før.
+- Avveining: agenten kan da endre sine egne instruksjoner og agenter.
+- Gjenåpning uten skrivebeskyttede mounts behandles som innholdsmiljø, ikke
+  eldre miljø. Brukeren bekreftet at sandboxen fungerte.
+
+### Standardmodell
+
+- Docker-kitet gir mange leverandører, blant annet OpenRouter. Uten `model`
+  valgte OpenCode tilsynelatende tilfeldig modell i nye sandboxer.
+- `models/install.py` setter `openai/gpt-6.1-sol` når `model` mangler. Agenter
+  med egen modell, som Fokus, beholder den. Modellen finnes i sandboxens
+  modelliste.
+
+### Jira med twg
+
+- `twg` fantes bare på Macen. Rovo virket, men agenten brukte den først når
+  brukeren nevnte den eksplisitt. Gatewaytjenester oppdages ikke av seg selv.
+- `personal` installerer `twg` 1.4.6 for Linux med sjekksumkontroll og legger
+  inn twg-skillene ved opprettelse. Det fungerer uten nettverk og gir fire
+  skills før innlogging og fjorten etter innlogging og ny `twg skills install`.
+- Funn: twg lenker skills til `~/.config/twg/skills`. Kollisjonskontrollen i
+  `content_runtime.py` avviste lenker ut av skills-mappen, noe som ville
+  stoppet oppsett og gjenåpning. Grensen er nå hjemmemappen.
+- Innlogging skjer per sandbox med `twg login` og enhetskode. Vurderte
+  alternativer: API-token via sbx-proxyen er utestet, og kopiert API-token ble
+  frarådet. Brukeren valgte innlogging per sandbox og bekreftet at det virker.
+- Grunninstruksjonene ber agenten bruke twg og Rovo bare på forespørsel.
+- Solea-skillene `brukerhistorie-assistent` og `release-notes` følger bare
+  prosjekter under `~/Dev/Solea`. Brukeren vil beholde det slik.
+
+### Utklippstavle
+
+- sbx erstatter `pbcopy`, `wl-copy` og `xclip` med skript mot gatewayen.
+  `clipboard.textCopy` og `clipboard.imagePaste` er av som standard.
+- Begge er slått på i sbx på Macen. Kopiering fra sandbox til Mac og lesing
+  av bilde fra Macen er bekreftet. Lesing av tekst fra Macen støttes ikke av
+  sbx; tekst limes inn med Cmd+V i terminalen.
+- Lærdom: en test tok vare på utklippstavlen med `pbpaste`, som bare håndterer
+  tekst. Et bilde på brukerens utklippstavle gikk tapt. Sjekk innholdstype før
+  slike tester.
+
+### Treg zsh-oppstart på Macen
+
+- Oppstart tok 2–7 sekunder ved skifte mellom innloggingsskall og andre skall.
+  `brew shellenv` i `.zprofile` ga ulik `fpath`, og oh-my-zsh bygde
+  fullføringsbufferen på nytt. `compinit` ble også kjørt to ganger.
+- Rettet i dotfiles: lik `fpath` i begge skalltyper og ett `compinit`.
+  `.zprofile` er versjonert som `zprofile`, lenket av `install.sh` og ryddet for
+  duplikater. Oppstart måles til 0,17–0,20 sekunder.
+
+### Øvrig
+
+- `oc capabilities` viser bare lagnavn. Brukeren fant utskriften lite
+  forklarende; en forbedring er ikke laget.
+- Det ucommittede utkastet `PROFILE-CONTRACT.md` er slettet etter avtale.
+- 162 tester består.
