@@ -173,7 +173,7 @@ en versjonsoppdatering foreslås.
 | --- | --- | --- | --- |
 | Prosjektfiler | Prosjektmappen på Macen, skrivbart montert | Beholdes | Beholdes |
 | Skills, agentfiler og fellesinstruksjoner | Egne innholdskilder på Macen, lesbart montert | Beholdes | Beholdes på Macen |
-| Installerte launcherfiler | `~/.local/share/opencode-sbx/launcher-mcp-v2/` | Uavhengig av sandboxen | Uendret |
+| Installerte launcherfiler | `~/.local/share/opencode-sbx/launcher-current/` (lenke til gjeldende versjon) | Uavhengig av sandboxen | Uendret |
 | Innholdsvalg | `~/.config/opencode-sbx/catalog.json` | Uavhengig av sandboxen | Uendret |
 | Logseq-profil og MCP-token | Privat Mac-konfigurasjon og state | Uavhengig av sandboxen | Uendret |
 | OpenCode-samtaler og filer bare inne i sandboxen | Sandboxens egne data | Testet bevart | Må sikres separat; ingen garanti om gjenoppretting |
@@ -332,7 +332,7 @@ Før aktivering kreves en gjennomgått launcher utenfor prosjektmountene:
 
 ```sh
 # Viser bare kopiplanen. Skriver ingenting.
-python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-mcp-v2
+python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-vN
 ```
 
 Installasjon med `--apply`, endring av `oc`-funksjonen og endring av privat
@@ -511,18 +511,21 @@ utklippstavle fra sandboxen er ikke verifisert.
 
 Endringer i repoet oppdaterer ikke den installerte launcheren automatisk.
 `install-launcher.py` nekter å skrive over en ikke-tom målmappe. `oc` peker
-derfor på den faste lenken `launcher-current`. En oppdatering installeres i en
-ny mappe, og deretter flyttes lenken. `zshrc` trenger ikke endres:
+derfor på den faste lenken `launcher-current`. Det gjør også Browse-registreringen
+og Logseq-tjenestens LaunchAgent. En oppdatering installeres i en ny mappe, og
+deretter flyttes lenken. Verken `zshrc`, Browse eller LaunchAgenten trenger endres:
 
 ```sh
-python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-v4 --apply
-ln -sfn launcher-v4 ~/.local/share/opencode-sbx/launcher-current
+python3 sbx/install-launcher.py ~/.local/share/opencode-sbx/launcher-vN --apply
+ln -sfn launcher-vN ~/.local/share/opencode-sbx/launcher-current
 ```
 
+Logseq-tjenesten kjører videre på gammel kode til den startes på nytt, for
+eksempel med `launchctl kickstart -k gui/$(id -u)/com.opencode-sbx.logseq`.
+
 Eksisterende sandboxer kan fortsatt gjenåpnes med `oc .` når mixinene kommer fra
-en tidligere launcher under `~/.local/share/opencode-sbx/`. Oppdater også
-eventuelle vertstjenester og MCP-registreringer som peker til den gamle
-installasjonen før denne ryddes bort.
+en tidligere launcher under `~/.local/share/opencode-sbx/`. Gamle launchermapper
+beholdes derfor inntil sandboxene som ble opprettet med dem, er slettet.
 
 Endrede kitfiler krever en ny sandbox med nytt navn. Behold den gamle til data
 og arbeidsflyt er kontrollert. Dette gjelder kopierte filer; levende

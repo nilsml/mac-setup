@@ -87,6 +87,12 @@ class McpTest(unittest.TestCase):
         plan = mcp.browse_plan()
         self.assertIn(f"{SBX / 'mcp_host.py'},browse", plan[0])
 
+    def test_symlinked_launcher_path_is_kept(self):
+        (self.home / "launcher-v9").mkdir()
+        (self.home / "launcher-current").symlink_to("launcher-v9", target_is_directory=True)
+        plan = mcp.browse_plan(launcher=self.home / "launcher-current")
+        self.assertIn(f"{self.home / 'launcher-current' / 'mcp_host.py'},browse", plan[0])
+
     def test_global_registration_does_not_inspect_or_load_sandbox(self):
         (self.home / "mcp_host.py").write_text("# synthetic")
         with patch.object(mcp.subprocess, "run") as run:

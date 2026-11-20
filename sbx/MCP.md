@@ -43,9 +43,9 @@ only `OPENCODE_BROWSER_RUNTIME` and a small host environment allowlist.
 It refuses arbitrary configured commands, extra environment settings, disabled
 Browse, and competing JSONC configuration. It does not print configuration.
 
-Browse is registered globally using the installed runner under
-`~/.local/share/opencode-sbx/launcher-mcp-v2/`. The `oc` shell function uses that
-same installation. The intermediate `launcher-mcp` copy has been removed.
+Browse is registered globally using the installed runner through
+`~/.local/share/opencode-sbx/launcher-current/`. The `oc` shell function uses the
+same symlink, so both follow launcher updates.
 
 An existing `browse` registration is never replaced automatically.
 Registering a server is not proof that the browser extension is reachable.
@@ -159,10 +159,11 @@ automatically switch the session's stored model.
 
 ## Installed configuration and first-time setup
 
-Current activation state: `oc` now points to `launcher-mcp-v2`, Browse is
-registered against that same installation, and the unused intermediate
-`launcher-mcp` copy has been removed. The original `launcher` is retained
-because an existing sandbox still references its kits. Browse relay and its
+Current activation state (20 November 2026): `oc`, the Browse registration and
+the Logseq LaunchAgent all use the symlink
+`~/.local/share/opencode-sbx/launcher-current`, so they follow launcher updates
+without re-registration. Older launcher folders are retained because existing
+sandboxes were created with their kits. Browse relay and its
 extension are connected; dynamic discovery, loading and the Browse `status`
 tool succeeded from the v2 test sandbox without reading private tabs.
 Rovo is registered at the canonical URL and is authorized.
@@ -180,13 +181,14 @@ own relay instead of using `browse serve` as a permanent service.
 The following describes the setup already performed on the configured Mac.
 On a new Mac these are explicit host changes, not automatic bootstrap steps:
 
-1. Install the current 24-file `install-launcher.py:FILES` manifest into a new,
-   empty `~/.local/share/opencode-sbx/launcher-mcp-v2/`. Contents are exact copies
-   of those repository files. Existing nonempty installations are not overwritten.
-2. Change only `oc` in `~/dotfiles/zshrc` to:
+1. Install the `install-launcher.py:FILES` manifest into a new, empty
+   `~/.local/share/opencode-sbx/launcher-vN/` and point the symlink to it:
+   `ln -sfn launcher-vN ~/.local/share/opencode-sbx/launcher-current`.
+   Existing nonempty installations are not overwritten.
+2. `oc` in `~/dotfiles/zshrc` is:
 
    ```sh
-   oc() { python3 "$HOME/.local/share/opencode-sbx/launcher-mcp-v2/oc.py" "$@"; }
+   oc() { python3 "$HOME/.local/share/opencode-sbx/launcher-current/oc.py" "$@"; }
    ```
 
 3. Run the installed `logseq.py` without flags to preview private state, then
@@ -202,15 +204,16 @@ On a new Mac these are explicit host changes, not automatic bootstrap steps:
    The token file contains a new random secret, not the Logseq API token.
    `logseq.py --serve` runs the existing MCP service in the foreground.
    On the configured Mac,
-   `~/Library/LaunchAgents/com.opencode-sbx.logseq.plist` starts this command at
-   login and restarts it when it exits. The plist is local setup; it is not
+   `~/Library/LaunchAgents/com.opencode-sbx.logseq.plist` starts
+   `launcher-current/logseq.py --serve` at login and restarts it when it exits.
+   The plist is local setup; it is not
    installed by `install-launcher.py`. Logseq itself and its HTTP API must
    also be running.
-4. Register Rovo as shown above, then let the user authenticate.
-
-Browse is already registered and must not be overwritten silently. If an installed
-runner is moved, update its registration explicitly and verify the new path before
-removing the old installation.
+4. Register Browse with `python3 ~/.local/share/opencode-sbx/launcher-current/mcp.py
+   browse --apply`. The plan keeps the `launcher-current` path. Registration
+   refuses to replace an existing entry; remove it first with
+   `sbx mcp rm --force browse`.
+5. Register Rovo as shown above, then let the user authenticate.
 
 ## Verification
 

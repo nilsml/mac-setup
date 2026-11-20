@@ -172,13 +172,16 @@ Utført 17.–20. november 2026. Commits `17812a5` til `e6dc860` i mac-setup.
 
 - `install-launcher.py` skriver ikke over en ikke-tom mappe. `oc` i dotfiles
   peker derfor på lenken `~/.local/share/opencode-sbx/launcher-current`.
-  Oppdatering: installer i ny mappe og kjør `ln -sfn`. Gjeldende er `launcher-v5`.
+  Oppdatering: installer i ny mappe og kjør `ln -sfn`.
 - Funn: etter bytte av launchermappe nektet `oc .` å gjenåpne eksisterende
   sandboxer, fordi mixinstien måtte være lik den aktive launcheren. Nå godtas
   `personal` og `models` fra samme installasjon under `~/.local/share/opencode-sbx/`
   eller repoet. Tørrkjøring for `oc-nfi` bekreftet gjenåpning.
-- Browse er fortsatt registrert mot `launcher-mcp-v2/mcp_host.py`. Gamle
-  launchermapper må ikke ryddes før registreringen er flyttet.
+- Browse-registreringen og Logseq-LaunchAgenten pekte fortsatt på
+  `launcher-mcp-v2`. Begge er flyttet til `launcher-current`; filene var
+  identiske. `mcp.py` følger ikke lenger lenken, så registreringen beholder
+  `launcher-current`. Browse har status `ready`, og Logseq-tjenesten svarer
+  på port 12320 fra Macen og fra sandbox.
 
 ### Innholdsrepo som prosjekt
 

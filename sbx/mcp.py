@@ -3,11 +3,13 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 
 
-DEFAULT_LAUNCHER = Path(__file__).resolve().parent
+# Keep symlinks such as launcher-current, so registrations follow later updates.
+DEFAULT_LAUNCHER = Path(os.path.abspath(__file__)).parent
 ROVO_URL = "https://mcp.atlassian.com/v2/mcp"
 
 
@@ -16,7 +18,7 @@ def browse_plan(launcher=DEFAULT_LAUNCHER):
     launcher = Path(launcher).expanduser()
     if not launcher.is_absolute():
         raise ValueError("Launcher path must be absolute.")
-    launcher = launcher.resolve()
+    launcher = Path(os.path.abspath(launcher))
     commands = [
         ["sbx", "mcp", "add", "browse", "--command", "/usr/bin/python3",
          "--args", f"{launcher / 'mcp_host.py'},browse", "--dir", str(Path.home())],
